@@ -1,0 +1,6 @@
+#ifndef AKIDELAYCONSTANTS_HPP
+#define AKIDELAYCONSTANTS_HPP
+
+const float AKI_DELAY_TIME_MAX = 1.6384;
+
+#endif
