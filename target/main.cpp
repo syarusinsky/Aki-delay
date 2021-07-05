@@ -6,13 +6,16 @@
 #include "SRAM_23K256.hpp"
 #include "SDCard.hpp"
 #include "OLED_SH1106.hpp"
+#include "AudioBuffer.hpp"
+#include "AkiDelayManager.hpp"
 
 // to disassemble -- arm-none-eabi-objdump -S --disassemble main_debug.elf > disassembled.s
 
 #define SYS_CLOCK_FREQUENCY 72000000
 
 // global variables
-volatile bool adcSetupComplete = false; // should be set to true after adc has been initialized
+volatile bool akiDelayReady = false; // should be set to true after everything has been initialized
+AudioBuffer<uint16_t>* audioBufferPtr = nullptr;
 
 // peripheral defines
 #define OP_AMP_PORT 		GPIO_PORT::A
@@ -142,7 +145,6 @@ int main(void)
 	LLPD::gpio_analog_setup( AUDIO_IN_PORT, AUDIO_IN_PIN );
 	LLPD::adc_init( ADC_CYCLES_PER_SAMPLE::CPS_2p5 );
 	LLPD::adc_set_channel_order( 4, EFFECT1_ADC_CHANNEL, EFFECT2_ADC_CHANNEL, EFFECT3_ADC_CHANNEL, AUDIO_IN_CHANNEL );
-	adcSetupComplete = true;
 	LLPD::usart_log( USART_NUM::USART_3, "adc initialized..." );
 
 	// pushbutton setup
@@ -228,7 +230,7 @@ int main(void)
 	// clear display buffer
 	for ( unsigned int byte = 0; byte < (SH1106_LCDHEIGHT * SH1106_LCDWIDTH) / 8; byte++ )
 	{
-		displayBuffer[byte] = 0x00;
+		displayBuffer[byte] = 0xFF;
 	}
 
 	// OLED setup
@@ -245,6 +247,15 @@ int main(void)
 
 	LLPD::usart_log( USART_NUM::USART_3, "Gen_FX_SYN setup complete, entering while loop -------------------------------" );
 
+	AudioBuffer<uint16_t> audioBuffer;
+	audioBufferPtr = &audioBuffer;
+
+	AkiDelayManager akiDelayManager( &srams );
+
+	audioBuffer.registerCallback( &akiDelayManager );
+
+	akiDelayReady = true;
+
 	while ( true )
 	{
 		if ( ! LLPD::gpio_input_get(EFFECT1_BUTTON_PORT, EFFECT1_BUTTON_PIN) )
@@ -260,6 +271,8 @@ int main(void)
 		LLPD::usart_log_int( USART_NUM::USART_3, "POT 1 VALUE: ", LLPD::adc_get_channel_value(EFFECT1_ADC_CHANNEL) );
 		LLPD::usart_log_int( USART_NUM::USART_3, "POT 2 VALUE: ", LLPD::adc_get_channel_value(EFFECT2_ADC_CHANNEL) );
 		LLPD::usart_log_int( USART_NUM::USART_3, "POT 3 VALUE: ", LLPD::adc_get_channel_value(EFFECT3_ADC_CHANNEL) );
+
+		audioBuffer.pollToFillBuffers();
 	}
 }
 
@@ -267,12 +280,13 @@ extern "C" void TIM6_DAC_IRQHandler (void)
 {
 	if ( ! LLPD::tim6_isr_handle_delay() ) // if not currently in a delay function,...
 	{
-		if ( adcSetupComplete )
+		if ( akiDelayReady )
 		{
-			LLPD::adc_perform_conversion_sequence();
 			uint16_t adcVal = LLPD::adc_get_channel_value( ADC_CHANNEL::CHAN_4 );
 
-			LLPD::dac_send( adcVal );
+			LLPD::dac_send( audioBufferPtr->getNextSample(adcVal) );
+
+			LLPD::adc_perform_conversion_sequence();
 		}
 	}
 
@@ -281,7 +295,9 @@ extern "C" void TIM6_DAC_IRQHandler (void)
 
 extern "C" void USART3_IRQHandler (void)
 {
+	/*
 	// loopback test code for usart recieve
 	uint16_t data = LLPD::usart_receive( USART_NUM::USART_3 );
 	LLPD::usart_transmit( USART_NUM::USART_3, data );
+	*/
 }

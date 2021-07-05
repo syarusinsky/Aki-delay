@@ -12,6 +12,21 @@ LLPD_FILES_DIR = ../lib/STM32f302x8-HAL/llpd
 LLPD_INCLUDE_DIR = $(LLPD_FILES_DIR)/include
 LLPD_SRC_DIR = $(LLPD_FILES_DIR)/src
 
+# Aki-delay files directory
+AKI_DELAY_FILES_DIR = ../
+AKI_DELAY_INCLUDE_DIR = $(AKI_DELAY_FILES_DIR)/include
+AKI_DELAY_SRC_DIR = $(AKI_DELAY_FILES_DIR)/src
+
+# SAL files directory
+SAL_FILES_DIR = ../lib/SAL
+SAL_INCLUDE_DIR = $(SAL_FILES_DIR)/include
+SAL_SRC_DIR = $(SAL_FILES_DIR)/src
+
+# SIGL files directory
+SIGL_FILES_DIR = ../lib/SIGL
+SIGL_INCLUDE_DIR = $(SIGL_FILES_DIR)/include
+SIGL_SRC_DIR = $(SIGL_FILES_DIR)/src
+
 # devlib files directory
 DEVLIB_FILES_DIR = ../lib/DevLib
 DEVLIB_INCLUDE_DIR = $(DEVLIB_FILES_DIR)/include
@@ -20,6 +35,9 @@ DEVLIB_SRC_DIR = $(DEVLIB_FILES_DIR)/src
 # include directories
 INCLUDE =  -I$(STM32_CUBE_INCLUDE_DIR)
 INCLUDE += -I$(LLPD_INCLUDE_DIR)
+INCLUDE += -I$(AKI_DELAY_INCLUDE_DIR)
+INCLUDE += -I$(SAL_INCLUDE_DIR)
+INCLUDE += -I$(SIGL_INCLUDE_DIR)
 INCLUDE += -I$(DEVLIB_INCLUDE_DIR)
 
 # linker script
@@ -71,6 +89,8 @@ CFLAGS += -ffunction-sections
 CFLAGS += -fdata-sections
 CFLAGS += -D$(VARIANT)
 CFLAGS += -DTARGET_BUILD
+# (allow SIGL to use software rendering)
+CFLAGS += -DSOFTWARE_RENDERING
 
 # linker directives.
 LSCRIPT = ./$(LD_SCRIPT)
@@ -88,6 +108,9 @@ C_SRC =  ./$(STM32_CUBE_FILES_DIR)/system_stm32f3xx.c
 # c++ files to compile
 CPP_SRC = ./main.cpp
 CPP_SRC += ./$(LLPD_SRC_DIR)/LLPD.cpp
+CPP_SRC += $(wildcard $(AKI_DELAY_SRC_DIR)/*.cpp)
+CPP_SRC += $(wildcard $(SAL_SRC_DIR)/*.cpp)
+CPP_SRC += $(wildcard $(SIGL_SRC_DIR)/*cpp)
 CPP_SRC += $(wildcard $(DEVLIB_SRC_DIR)/*.cpp)
 
 RELEASE_OBJS =  $(AS_SRC:.s=_release.o)

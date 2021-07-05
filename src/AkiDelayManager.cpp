@@ -5,8 +5,6 @@
 
 #include <string.h>
 
-#include <iostream>
-
 static const uint16_t softClipOffset = 0;
 
 AkiDelayManager::AkiDelayManager (IStorageMedia* delayBufferStorage) :
@@ -48,32 +46,33 @@ void AkiDelayManager::setFiltFreq (float filtFreq)
 void AkiDelayManager::call (uint16_t* writeBuffer)
 {
 	// set correct read index, feedback amount, and filter frequency for this block
-	unsigned int delayTimeInSamples = m_DelayTime * SAMPLE_RATE;
+	unsigned int delayTimeInSamples = static_cast<unsigned int>( m_DelayTime * SAMPLE_RATE );
 	// ensure that the read index at least lags behind the write index by ABUFFER_SIZE samples
 	int newReadIndex = m_WriteIndex - ( (delayTimeInSamples < ABUFFER_SIZE) ? ABUFFER_SIZE : delayTimeInSamples );
 	newReadIndex = ( newReadIndex < 0 ) ? m_DelayBufferSize + newReadIndex : newReadIndex;
 	newReadIndex &= ~(0b1); // ensure it is even, to align the data
+	int oldReadIndex = m_ReadIndex;
 	float feedback = m_Feedback;
 
 	// we will likely have to glide between some samples, so calculate how many here
 	unsigned int samplesToGlide = 0;
-	if ( m_ReadIndex != newReadIndex && m_GlideDirection ) // gliding forwards towards write index
+	if ( oldReadIndex != newReadIndex && m_GlideDirection ) // gliding forwards towards write index
 	{
-		samplesToGlide = ( newReadIndex > m_ReadIndex ) ? newReadIndex - m_ReadIndex : (m_DelayBufferSize - m_ReadIndex) + newReadIndex;
+		samplesToGlide = ( newReadIndex > oldReadIndex ) ? newReadIndex - oldReadIndex : (m_DelayBufferSize - oldReadIndex) + newReadIndex;
 
 		if ( samplesToGlide > AKI_DELAY_MAX_GLIDE_SAMPLES )
 		{
-			newReadIndex = ( m_ReadIndex + AKI_DELAY_MAX_GLIDE_SAMPLES ) % m_DelayBufferSize;
+			newReadIndex = ( oldReadIndex + AKI_DELAY_MAX_GLIDE_SAMPLES ) % m_DelayBufferSize;
 			samplesToGlide = AKI_DELAY_MAX_GLIDE_SAMPLES;
 		}
 	}
-	else if ( m_ReadIndex != newReadIndex ) // gliding backwards away from write index
+	else if ( oldReadIndex != newReadIndex ) // gliding backwards away from write index
 	{
-		samplesToGlide = ( newReadIndex < m_ReadIndex ) ? m_ReadIndex - newReadIndex : (m_DelayBufferSize - newReadIndex) + m_ReadIndex;
+		samplesToGlide = ( newReadIndex < oldReadIndex ) ? oldReadIndex - newReadIndex : (m_DelayBufferSize - newReadIndex) + oldReadIndex;
 
 		if ( samplesToGlide > AKI_DELAY_MAX_GLIDE_SAMPLES )
 		{
-			int difference = m_ReadIndex - AKI_DELAY_MAX_GLIDE_SAMPLES;
+			int difference = oldReadIndex - AKI_DELAY_MAX_GLIDE_SAMPLES;
 			newReadIndex = ( difference >= 0 ) ? difference : m_DelayBufferSize + difference;
 			samplesToGlide = AKI_DELAY_MAX_GLIDE_SAMPLES;
 		}
@@ -81,16 +80,15 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 	samplesToGlide += ABUFFER_SIZE; // also need to incorporate the old or new read block
 
 	// read data from the storage device from the read index to the new read index or vice versa depending on glide direction
-	SharedData<uint8_t> glideData = SharedData<uint8_t>::MakeSharedData( samplesToGlide * sizeof(uint16_t) );
-	uint16_t* glideDataPtr = reinterpret_cast<uint16_t*>( glideData.getPtr() );
-	if ( (m_GlideDirection && (m_ReadIndex + samplesToGlide) <= m_DelayBufferSize)
+	SharedData<uint8_t> glideData = SharedData<uint8_t>::MakeSharedDataNull();
+	if ( (m_GlideDirection && (oldReadIndex + samplesToGlide) <= m_DelayBufferSize)
 			|| (! m_GlideDirection && (newReadIndex + samplesToGlide) <= m_DelayBufferSize) )
 	{
 		// in this case we don't wrap around the storage buffer
 		SharedData<uint8_t> tempData = SharedData<uint8_t>::MakeSharedDataNull();
 		if ( m_GlideDirection ) // gliding forwards towards write index
 		{
-			tempData = m_StorageMedia->readFromMedia( samplesToGlide * sizeof(uint16_t), m_ReadIndex * sizeof(uint16_t) );
+			tempData = m_StorageMedia->readFromMedia( samplesToGlide * sizeof(uint16_t), oldReadIndex * sizeof(uint16_t) );
 		}
 		else // gliding backwards away from write index
 		{
@@ -98,24 +96,14 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 		}
 
 		glideData = tempData;
-		// update pointer too
-		glideDataPtr = reinterpret_cast<uint16_t*>( glideData.getPtr() );
 	}
 	else
 	{
+		glideData = SharedData<uint8_t>::MakeSharedData( samplesToGlide * sizeof(uint16_t) );
+		uint16_t* glideDataPtr = reinterpret_cast<uint16_t*>( glideData.getPtr() );
+
 		// in this case we carefully wrap around the storage buffer
-		unsigned int endIndex = 0; // the index at the end of the buffer that needs to wrap
-		unsigned int beginIndex = 0; // the index at the beginning of the buffer
-		if ( m_ReadIndex > newReadIndex )
-		{
-			endIndex = m_ReadIndex;
-			beginIndex = newReadIndex;
-		}
-		else
-		{
-			endIndex = newReadIndex;
-			beginIndex = m_ReadIndex;
-		}
+		unsigned int endIndex = ( oldReadIndex > newReadIndex ) ? oldReadIndex : newReadIndex;
 		unsigned int firstHalfSize = m_DelayBufferSize - endIndex;
 		SharedData<uint8_t> tempFirstHalf = m_StorageMedia->readFromMedia( firstHalfSize * sizeof(uint16_t), endIndex * sizeof(uint16_t) );
 		uint16_t* tempFirstHalfPtr = reinterpret_cast<uint16_t*>( tempFirstHalf.getPtr() );
@@ -134,6 +122,7 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 	}
 
 	// linearly interpolate between the glide samples into the read samples
+	uint16_t* glideDataPtr = reinterpret_cast<uint16_t*>( glideData.getPtr() );
 	float glideSampleIncr = static_cast<float>( samplesToGlide ) * ( 1.0f / ABUFFER_SIZE );
 	float currentGlideSample = 0.0f;
 	SharedData<uint8_t> readData = SharedData<uint8_t>::MakeSharedData( ABUFFER_SIZE * sizeof(uint16_t) );
@@ -152,7 +141,10 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 
 	for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
 	{
-		writeDataPtr[sample] = ( writeBuffer[sample] + (readDataPtr[sample] * feedback) ) * 0.55f;
+		float outSample = ( writeBuffer[sample] + (readDataPtr[sample] * feedback) ) * 0.5f;
+		float filteredSample = m_Filt.processSample( outSample );
+
+		writeDataPtr[sample] = static_cast<uint16_t>( filteredSample );
 	}
 
 	// we don't need to worry about the wrapping issue since writing is always done in block sizes that fit nicely into the storage buffer
@@ -162,8 +154,7 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 	// write read data to write buffer
 	for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
 	{
-		// we need to bring the gain down a little for the clipper
-		float filteredSample = m_Filt.processSample( readDataPtr[sample] * 0.82f );
-		writeBuffer[sample] = m_SoftClipper.processSample( filteredSample );
+		// we also need to offset the 1.5 gain from the soft clipper, otherwise the clipping sounds a bit ugly
+		writeBuffer[sample] = m_SoftClipper.processSample( static_cast<uint16_t>(readDataPtr[sample] * 0.816497f) );
 	}
 }
