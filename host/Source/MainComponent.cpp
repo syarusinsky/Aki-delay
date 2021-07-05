@@ -28,6 +28,8 @@ const unsigned int LOGO_FILE_SIZE = 119;
 const int OpRadioId = 1001;
 const int WaveRadioId = 1002;
 
+static bool resetMaxAndMins = false;
+
 //==============================================================================
 MainComponent::MainComponent() :
 	sAudioBuffer(),
@@ -213,10 +215,6 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
 	// Your audio-processing code goes here!
 
 	// For more details, see the help for AudioProcessor::getNextAudioBlock()
-
-	// Right now we are not producing any data, in which case we need to clear the buffer
-	// (to prevent the output of random noise)
-	// bufferToFill.clearActiveBufferRegion();
 	try
 	{
 		const float* inBufferL = bufferToFill.buffer->getReadPointer( 0, bufferToFill.startSample );
@@ -224,14 +222,21 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
 		float* outBufferL = bufferToFill.buffer->getWritePointer( 0, bufferToFill.startSample );
 		float* outBufferR = bufferToFill.buffer->getWritePointer( 1, bufferToFill.startSample );
 
-		for ( auto sample = 0; sample < bufferToFill.numSamples; ++sample )
+		static uint16_t maxOut = 0;
+		static uint16_t minOut = 0;
+		if ( resetMaxAndMins ) { maxOut = 0; minOut = 0; resetMaxAndMins = false; }
+		for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; ++sample )
 		{
 			uint16_t sampleToReadBuffer = ( (inBufferL[sample] + 1.0f) * 0.5f ) * 4096.0f;
 			uint16_t sampleOut = sAudioBuffer.getNextSample( sampleToReadBuffer );
 			float sampleOutFloat = static_cast<float>( ((sampleOut / 4096.0f) * 2.0f) - 1.0f );
+			if ( sampleOut > maxOut ) maxOut = sampleOut;
+			if ( sampleOut < minOut ) minOut = sampleOut;
 			outBufferL[sample] = sampleOutFloat;
 			outBufferR[sample] = sampleOutFloat;
 		}
+		// std::cout << "maxOut: " << std::to_string(maxOut) << std::endl;
+		// std::cout << "minOut: " << std::to_string(minOut) << std::endl;
 
 		sAudioBuffer.pollToFillBuffers();
 	}
@@ -247,6 +252,8 @@ void MainComponent::releaseResources()
 	// restarted due to a setting change.
 	//
 	// For more details, see the help for AudioProcessor::releaseResources()
+	std::cout << "Resources released, resetting max and min" << std::endl;
+	resetMaxAndMins = true;
 }
 
 //==============================================================================

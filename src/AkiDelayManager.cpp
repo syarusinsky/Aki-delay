@@ -1,10 +1,9 @@
 #include "AkiDelayManager.hpp"
 
+#include "AkiDelayConstants.hpp"
 #include "SRAM_23K256.hpp"
 
 #include <string.h>
-
-#include <iostream>
 
 AkiDelayManager::AkiDelayManager (IStorageMedia* delayBufferStorage) :
 	m_StorageMedia( delayBufferStorage ),
@@ -54,14 +53,25 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 	if ( m_ReadIndex != newReadIndex && m_GlideDirection ) // gliding forwards towards write index
 	{
 		samplesToGlide = ( newReadIndex > m_ReadIndex ) ? newReadIndex - m_ReadIndex : (m_DelayBufferSize - m_ReadIndex) + newReadIndex;
+
+		if ( samplesToGlide > AKI_DELAY_MAX_GLIDE_SAMPLES )
+		{
+			newReadIndex = ( m_ReadIndex + AKI_DELAY_MAX_GLIDE_SAMPLES ) % m_DelayBufferSize;
+			samplesToGlide = AKI_DELAY_MAX_GLIDE_SAMPLES;
+		}
 	}
 	else if ( m_ReadIndex != newReadIndex ) // gliding backwards away from write index
 	{
 		samplesToGlide = ( newReadIndex < m_ReadIndex ) ? m_ReadIndex - newReadIndex : (m_DelayBufferSize - newReadIndex) + m_ReadIndex;
+
+		if ( samplesToGlide > AKI_DELAY_MAX_GLIDE_SAMPLES )
+		{
+			int difference = m_ReadIndex - AKI_DELAY_MAX_GLIDE_SAMPLES;
+			newReadIndex = ( difference >= 0 ) ? difference : m_DelayBufferSize + difference;
+			samplesToGlide = AKI_DELAY_MAX_GLIDE_SAMPLES;
+		}
 	}
 	samplesToGlide += ABUFFER_SIZE; // also need to incorporate the old or new read block
-
-	// TODO we'll likely want to limit the number of samples to glide by only allowing delay time increment changes
 
 	// read data from the storage device from the read index to the new read index or vice versa depending on glide direction
 	SharedData<uint8_t> glideData = SharedData<uint8_t>::MakeSharedData( samplesToGlide * sizeof(uint16_t) );
@@ -135,7 +145,7 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 
 	for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
 	{
-		writeDataPtr[sample] = ( writeBuffer[sample] + (readDataPtr[sample] * feedback) ) / 2;
+		writeDataPtr[sample] = ( writeBuffer[sample] + (readDataPtr[sample] * feedback) ) * 0.55f;
 	}
 
 	// we don't need to worry about the wrapping issue since writing is always done in block sizes that fit nicely into the storage buffer
