@@ -4,6 +4,8 @@
 #include "IBufferCallback.hpp"
 #include "IStorageMedia.hpp"
 #include "AudioConstants.hpp"
+#include "OnePoleFilter.hpp"
+#include "SoftClipper.hpp"
 
 #include <stdint.h>
 
@@ -31,6 +33,9 @@ class AkiDelayManager : public IBufferCallback<uint16_t>
 		unsigned int 	m_ReadIndex;
 
 		bool 		m_GlideDirection; // if true, we're gliding our read pointer forwards toward the write pointer, else backwards
+
+		OnePoleFilter 	m_Filt;
+		SoftClipper<uint16_t> 	m_SoftClipper;
 };
 
 #endif

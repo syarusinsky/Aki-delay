@@ -39,6 +39,8 @@
             file="../lib/SAL/include/KeyEventServer.hpp"/>
       <FILE id="Cf1RgN" name="OnePoleFilter.hpp" compile="0" resource="0"
             file="../lib/SAL/include/OnePoleFilter.hpp"/>
+      <FILE id="cW1RgN" name="SoftClipper.hpp" compile="0" resource="0" file="../lib/SAL/include/SoftClipper.hpp"/>
+      <FILE id="cW1QXN" name="SoftClipper.cpp" compile="1" resource="0" file="../lib/SAL/src/SoftClipper.cpp"/>
       <FILE id="qeuWpH" name="PresetManager.hpp" compile="0" resource="0"
             file="../lib/SAL/include/PresetManager.hpp"/>
       <FILE id="CUpz8d" name="SharedData.hpp" compile="0" resource="0" file="../lib/DevLib/include/SharedData.hpp"/>

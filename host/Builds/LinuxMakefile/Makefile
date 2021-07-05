@@ -75,6 +75,7 @@ OBJECTS_APP := \
   $(JUCE_OBJDIR)/IButtonEventListener_206dc39d.o \
   $(JUCE_OBJDIR)/OnePoleFilter_1f5d4f76.o \
   $(JUCE_OBJDIR)/FakeStorageDevice_f86b1aa0.o \
+  $(JUCE_OBJDIR)/SoftClipper_cd2d93a3.o \
   $(JUCE_OBJDIR)/ColorProfile_54fec7c1.o \
   $(JUCE_OBJDIR)/AkiDelayManager_14cb1f84.o \
   $(JUCE_OBJDIR)/Font_e68320ca.o \
@@ -145,6 +146,11 @@ $(JUCE_OBJDIR)/OnePoleFilter_1f5d4f76.o: ../../../lib/SAL/src/OnePoleFilter.cpp
 $(JUCE_OBJDIR)/FakeStorageDevice_f86b1aa0.o: ../../../lib/DevLib/src/FakeStorageDevice.cpp
 	-$(V_AT)mkdir -p $(JUCE_OBJDIR)
 	@echo "Compiling FakeStorageDevice.cpp"
+	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_APP) $(JUCE_CFLAGS_APP) -o "$@" -c "$<"
+
+$(JUCE_OBJDIR)/SoftClipper_cd2d93a3.o: ../../../lib/SAL/src/SoftClipper.cpp
+	-$(V_AT)mkdir -p $(JUCE_OBJDIR)
+	@echo "Compiling SoftClipper.cpp"
 	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_APP) $(JUCE_CFLAGS_APP) -o "$@" -c "$<"
 
 $(JUCE_OBJDIR)/ColorProfile_54fec7c1.o: ../../../lib/SIGL/src/ColorProfile.cpp

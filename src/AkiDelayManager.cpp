@@ -5,6 +5,10 @@
 
 #include <string.h>
 
+#include <iostream>
+
+static const uint16_t softClipOffset = 0;
+
 AkiDelayManager::AkiDelayManager (IStorageMedia* delayBufferStorage) :
 	m_StorageMedia( delayBufferStorage ),
 	m_DelayTime( 0.0f ),
@@ -13,7 +17,9 @@ AkiDelayManager::AkiDelayManager (IStorageMedia* delayBufferStorage) :
 	m_DelayBufferSize( (Sram_23K256::SRAM_SIZE * 4) / sizeof(uint16_t) ), // size of 4 srams installed on Gen_FX_SYN rev 2
 	m_WriteIndex( ABUFFER_SIZE ),
 	m_ReadIndex( 0 ),
-	m_GlideDirection( true )
+	m_GlideDirection( true ),
+	m_Filt(),
+	m_SoftClipper()
 {
 }
 
@@ -36,6 +42,7 @@ void AkiDelayManager::setFeedback (float feedback)
 void AkiDelayManager::setFiltFreq (float filtFreq)
 {
 	m_FiltFreq = filtFreq;
+	m_Filt.setCoefficients( filtFreq );
 }
 
 void AkiDelayManager::call (uint16_t* writeBuffer)
@@ -155,6 +162,8 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 	// write read data to write buffer
 	for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
 	{
-		writeBuffer[sample] = readDataPtr[sample];
+		// we need to bring the gain down a little for the clipper
+		float filteredSample = m_Filt.processSample( readDataPtr[sample] * 0.82f );
+		writeBuffer[sample] = m_SoftClipper.processSample( filteredSample );
 	}
 }
