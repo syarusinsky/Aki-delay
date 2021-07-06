@@ -39,7 +39,7 @@ ifeq ($(CONFIG),Debug)
   JUCE_CPPFLAGS_APP := -DJucePlugin_Build_VST=0 -DJucePlugin_Build_VST3=0 -DJucePlugin_Build_AU=0 -DJucePlugin_Build_AUv3=0 -DJucePlugin_Build_RTAS=0 -DJucePlugin_Build_AAX=0 -DJucePlugin_Build_Standalone=0 -DJucePlugin_Build_Unity=0
   JUCE_TARGET_APP := Aki-delay
 
-  JUCE_CFLAGS += $(JUCE_CPPFLAGS) $(TARGET_ARCH) -g -ggdb -O0 -I../../../lib/SAL/include -I../../../include -I../../../lib/SIGL/include -I../../../lib/DevLib/include -I../../../lib/STM32f302x8-HAL/llpd/include -DSOFTWARE_RENDERING $(CFLAGS)
+  JUCE_CFLAGS += $(JUCE_CPPFLAGS) $(TARGET_ARCH) -g -ggdb -O0 -I../../../lib/SAL/include -I../../../include -I../../../lib/SIGL/include -I../../../lib/DevLib/include -I../../../lib/STM32f302x8-HAL/llpd/include -I../../../assets -DSOFTWARE_RENDERING $(CFLAGS)
   JUCE_CXXFLAGS += $(JUCE_CFLAGS) -std=c++11 $(CXXFLAGS)
   JUCE_LDFLAGS += $(TARGET_ARCH) -L$(JUCE_BINDIR) -L$(JUCE_LIBDIR) $(shell pkg-config --libs alsa x11 xinerama xext freetype2 webkit2gtk-4.0 gtk+-x11-3.0 libcurl zlib libjpeg libpng flac vorbis vorbisfile vorbisenc ogg jack) -lrt -ldl -lpthread -lGL $(LDFLAGS)
 
@@ -60,7 +60,7 @@ ifeq ($(CONFIG),Release)
   JUCE_CPPFLAGS_APP := -DJucePlugin_Build_VST=0 -DJucePlugin_Build_VST3=0 -DJucePlugin_Build_AU=0 -DJucePlugin_Build_AUv3=0 -DJucePlugin_Build_RTAS=0 -DJucePlugin_Build_AAX=0 -DJucePlugin_Build_Standalone=0 -DJucePlugin_Build_Unity=0
   JUCE_TARGET_APP := Aki-delay
 
-  JUCE_CFLAGS += $(JUCE_CPPFLAGS) $(TARGET_ARCH) -O3 -I../../../lib/SAL/include -I../../../include -I../../../lib/SIGL/include -I../../../lib/DevLib/include -I../../../lib/STM32f302x8-HAL/llpd/include -DSOFTWARE_RENDERING $(CFLAGS)
+  JUCE_CFLAGS += $(JUCE_CPPFLAGS) $(TARGET_ARCH) -O3 -I../../../lib/SAL/include -I../../../include -I../../../lib/SIGL/include -I../../../lib/DevLib/include -I../../../lib/STM32f302x8-HAL/llpd/include -I../../../assets -DSOFTWARE_RENDERING $(CFLAGS)
   JUCE_CXXFLAGS += $(JUCE_CFLAGS) -std=c++11 $(CXXFLAGS)
   JUCE_LDFLAGS += $(TARGET_ARCH) -L$(JUCE_BINDIR) -L$(JUCE_LIBDIR) $(shell pkg-config --libs alsa x11 xinerama xext freetype2 webkit2gtk-4.0 gtk+-x11-3.0 libcurl zlib libjpeg libpng flac vorbis vorbisfile vorbisenc ogg jack) -fvisibility=hidden -lrt -ldl -lpthread -lGL $(LDFLAGS)
 
@@ -78,6 +78,8 @@ OBJECTS_APP := \
   $(JUCE_OBJDIR)/SoftClipper_cd2d93a3.o \
   $(JUCE_OBJDIR)/ColorProfile_54fec7c1.o \
   $(JUCE_OBJDIR)/AkiDelayManager_14cb1f84.o \
+  $(JUCE_OBJDIR)/IAkiDelayParameterEventListener_5dad1aad.o \
+  $(JUCE_OBJDIR)/AkiDelayUiManager_15b133d0.o \
   $(JUCE_OBJDIR)/Font_e68320ca.o \
   $(JUCE_OBJDIR)/FrameBuffer_dd23fc3c.o \
   $(JUCE_OBJDIR)/SoftwareGraphics_2fefb4d.o \
@@ -161,6 +163,16 @@ $(JUCE_OBJDIR)/ColorProfile_54fec7c1.o: ../../../lib/SIGL/src/ColorProfile.cpp
 $(JUCE_OBJDIR)/AkiDelayManager_14cb1f84.o: ../../../src/AkiDelayManager.cpp
 	-$(V_AT)mkdir -p $(JUCE_OBJDIR)
 	@echo "Compiling AkiDelayManager.cpp"
+	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_APP) $(JUCE_CFLAGS_APP) -o "$@" -c "$<"
+
+$(JUCE_OBJDIR)/IAkiDelayParameterEventListener_5dad1aad.o: ../../../src/IAkiDelayParameterEventListener.cpp
+	-$(V_AT)mkdir -p $(JUCE_OBJDIR)
+	@echo "Compiling IAkiDelayParameterEventListener.cpp"
+	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_APP) $(JUCE_CFLAGS_APP) -o "$@" -c "$<"
+
+$(JUCE_OBJDIR)/AkiDelayUiManager_15b133d0.o: ../../../src/AkiDelayUiManager.cpp
+	-$(V_AT)mkdir -p $(JUCE_OBJDIR)
+	@echo "Compiling AkiDelayUiManager.cpp"
 	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_APP) $(JUCE_CFLAGS_APP) -o "$@" -c "$<"
 
 $(JUCE_OBJDIR)/Font_e68320ca.o: ../../../lib/SIGL/src/Font.cpp

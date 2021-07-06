@@ -13,6 +13,7 @@
 #include "AudioSettingsComponent.h"
 #include "FakeStorageDevice.hpp"
 #include "AkiDelayManager.hpp"
+#include "AkiDelayUiManager.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -54,6 +55,7 @@ class MainComponent   : public juce::AudioAppComponent, public juce::Slider::Lis
 		FakeStorageDevice fakeStorageDevice;
 
 		AkiDelayManager akiDelayManager;
+		AkiDelayUiManager akiDelayUiManager;
 
 		juce::AudioFormatWriter* writer;
 

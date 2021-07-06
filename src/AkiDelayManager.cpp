@@ -17,10 +17,12 @@ AkiDelayManager::AkiDelayManager (IStorageMedia* delayBufferStorage) :
 	m_Filt(),
 	m_SoftClipper()
 {
+	this->bindToAkiDelayParameterEventSystem();
 }
 
 AkiDelayManager::~AkiDelayManager()
 {
+	this->unbindFromAkiDelayParameterEventSystem();
 }
 
 void AkiDelayManager::setDelayTime (float delayTime)
@@ -174,5 +176,25 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 	{
 		// we also need to offset the 1.5 gain from the soft clipper, otherwise the clipping sounds a bit ugly
 		writeBuffer[sample] = m_SoftClipper.processSample( static_cast<uint16_t>(readDataPtr[sample] * 0.816497f) );
+	}
+}
+
+void AkiDelayManager::onAkiDelayParameterEvent (const AkiDelayParameterEvent& paramEvent)
+{
+	unsigned int channel = paramEvent.getChannel();
+	POT_CHANNEL channelEnum = static_cast<POT_CHANNEL>( channel );
+	float valueToSet = paramEvent.getValue();
+
+	if ( channelEnum == POT_CHANNEL::DELAY_TIME )
+	{
+		this->setDelayTime( valueToSet );
+	}
+	else if ( channelEnum == POT_CHANNEL::FEEDBACK )
+	{
+		this->setFeedback( valueToSet );
+	}
+	else if ( channelEnum == POT_CHANNEL::FILT_FREQ )
+	{
+		this->setFiltFreq( valueToSet );
 	}
 }

@@ -22,11 +22,10 @@
 #include "Sprite.hpp"
 #include "SRAM_23K256.hpp"
 
-const unsigned int FONT_FILE_SIZE = 779;
-const unsigned int LOGO_FILE_SIZE = 119;
-
-const int OpRadioId = 1001;
-const int WaveRadioId = 1002;
+// assets
+#include "AkiDelayMainImage.h"
+#include "AkiDelayHiddenImage.h"
+#include "Smoll.h"
 
 static bool resetMaxAndMins = false;
 
@@ -35,6 +34,7 @@ MainComponent::MainComponent() :
 	sAudioBuffer(),
 	fakeStorageDevice( Sram_23K256::SRAM_SIZE * 4 ), // sram size on Gen_FX_SYN boards, with four srams installed
 	akiDelayManager( &fakeStorageDevice ),
+	akiDelayUiManager( Smoll_data, AkiDelayMainImage_data, AkiDelayHiddenImage_data ),
 	writer(),
 	delayTimeSldr(),
 	delayTimeLbl(),
@@ -50,51 +50,6 @@ MainComponent::MainComponent() :
 	audioSettingsComponent( deviceManager, 2, 2, &audioSettingsBtn ),
 	screenRep( juce::Image::RGB, 256, 128, true ) // this is actually double the size so we can actually see it
 {
-	// load font and logo from file
-	char* fontBytes = new char[FONT_FILE_SIZE];
-	char* logoBytes = new char[LOGO_FILE_SIZE];
-
-	const unsigned int pathMax = 1000;
-#ifdef __unix__
-	char result[pathMax];
-	ssize_t count = readlink( "/proc/self/exe", result, pathMax );
-	std::string assetsPath( result, (count > 0) ? count : 0 );
-	std::string strToRemove( "host/Builds/LinuxMakefile/build/FMSynth" );
-
-	std::string::size_type i = assetsPath.find( strToRemove );
-
-	if ( i != std::string::npos )
-	{
-		assetsPath.erase( i, strToRemove.length() );
-	}
-
-	assetsPath += "assets/";
-
-	std::string fontPath = assetsPath + "Smoll.sff";
-	std::string logoPath = assetsPath + "theroomdisconnectlogo.sif";
-#elif defined(_WIN32) || defined(WIN32)
-	// TODO need to actually implement this for windows
-#endif
-	std::ifstream fontFile( fontPath, std::ifstream::binary );
-	if ( ! fontFile )
-	{
-		std::cout << "FAILED TO OPEN FONT FILE!" << std::endl;
-	}
-	fontFile.read( fontBytes, FONT_FILE_SIZE );
-	fontFile.close();
-
-	Font* font = new Font( (uint8_t*)fontBytes );
-
-	std::ifstream logoFile( logoPath, std::ifstream::binary );
-	if ( ! logoFile )
-	{
-		std::cout << "FAILED TO OPEN LOGO FILE!" << std::endl;
-	}
-	logoFile.read( logoBytes, LOGO_FILE_SIZE );
-	logoFile.close();
-
-	Sprite* logo = new Sprite( (uint8_t*)logoBytes );
-
 	// Some platforms require permissions to open input channels so request that here
 	if ( juce::RuntimePermissions::isRequired (juce::RuntimePermissions::recordAudio)
 			&& ! juce::RuntimePermissions::isGranted (juce::RuntimePermissions::recordAudio) )
@@ -108,32 +63,10 @@ MainComponent::MainComponent() :
 		setAudioChannels (2, 2);
 	}
 
-	// TODO still need to do this
-	// connecting the audio buffer to the voice manager
-	// sAudioBuffer.registerCallback( &armor8VoiceManager );
-
 	// juce audio device setup
 	juce::AudioDeviceManager::AudioDeviceSetup deviceSetup = juce::AudioDeviceManager::AudioDeviceSetup();
 	deviceSetup.sampleRate = 96000;
 	deviceManager.initialise( 2, 2, 0, true, juce::String(), &deviceSetup );
-
-	// basic juce logging
-	// juce::Logger* log = juce::Logger::getCurrentLogger();
-	// int sampleRate = deviceManager.getCurrentAudioDevice()->getCurrentSampleRate();
-	// log->writeToLog( juce::String(sampleRate) );
-	// log->writeToLog( juce::String(deviceManager.getCurrentAudioDevice()->getCurrentBufferSizeSamples()) );
-
-	// optionally we can write wav files for debugging
-	// juce::WavAudioFormat wav;
-	// juce::File tempFile( "TestAudio.wav" );
-	// juce::OutputStream* outStream( tempFile.createOutputStream() );
-	// writer = wav.createWriterFor( outStream, sampleRate, 2, wav.getPossibleBitDepths().getLast(), NULL, 0 );
-
-	// log->writeToLog( juce::String(wav.getPossibleBitDepths().getLast()) );
-	// log->writeToLog( tempFile.getFullPathName() );
-
-	// this file can also be used for debugging
-	testFile.open( "JuceMainComponentOutput.txt" );
 
 	// adding all child components
 	addAndMakeVisible( delayTimeSldr );
@@ -184,6 +117,9 @@ MainComponent::MainComponent() :
 	this->startTimer( 33 );
 
 	sAudioBuffer.registerCallback( &akiDelayManager );
+
+	akiDelayUiManager.draw();
+	this->copyFrameBufferToImage( 0, 0, 256, 256 );
 }
 
 MainComponent::~MainComponent()
@@ -291,15 +227,15 @@ void MainComponent::sliderValueChanged (juce::Slider* slider)
 
 		if (slider == &delayTimeSldr)
 		{
-			akiDelayManager.setDelayTime( val );
+			IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::DELAY_TIME)) );
 		}
 		else if (slider == &feedbackSldr)
 		{
-			akiDelayManager.setFeedback( percentage );
+			IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::FEEDBACK)) );
 		}
 		else if (slider == &filtFreqSldr)
 		{
-			akiDelayManager.setFiltFreq( val );
+			IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::FILT_FREQ)) );
 		}
 	}
 	catch (std::exception& e)
@@ -354,17 +290,15 @@ void MainComponent::updateToggleState (juce::Button* button)
 
 void MainComponent::copyFrameBufferToImage (unsigned int xStart, unsigned int yStart, unsigned int xEnd, unsigned int yEnd)
 {
-	// TODO reimplement this
-	/*
-	ColorProfile* colorProfile = uiSim.getColorProfile();
-	FrameBuffer* frameBuffer = uiSim.getFrameBuffer();
+	ColorProfile* colorProfile = akiDelayUiManager.getColorProfile();
+	FrameBuffer* frameBuffer = akiDelayUiManager.getFrameBuffer();
 	unsigned int frameBufferWidth = frameBuffer->getWidth();
 
 	for ( unsigned int pixelY = yStart; pixelY < yEnd + 1; pixelY++ )
 	{
 		for ( unsigned int pixelX = xStart; pixelX < xEnd + 1; pixelX++ )
 		{
-			if ( ! colorProfile->getPixel(frameBuffer->getPixels(), (pixelY * frameBufferWidth) + pixelX).m_M )
+			if ( ! colorProfile->getPixel(frameBuffer->getPixels(), frameBufferWidth * frameBuffer->getHeight(), (pixelY * frameBufferWidth) + pixelX).m_M )
 			{
 				screenRep.setPixelAt( (pixelX * 2),     (pixelY * 2),     juce::Colour(0, 0, 0) );
 				screenRep.setPixelAt( (pixelX * 2) + 1, (pixelY * 2),     juce::Colour(0, 0, 0) );
@@ -380,5 +314,4 @@ void MainComponent::copyFrameBufferToImage (unsigned int xStart, unsigned int yS
 			}
 		}
 	}
-	*/
 }

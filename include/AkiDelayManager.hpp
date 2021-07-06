@@ -6,10 +6,11 @@
 #include "AudioConstants.hpp"
 #include "OnePoleFilter.hpp"
 #include "SoftClipper.hpp"
+#include "IAkiDelayParameterEventListener.hpp"
 
 #include <stdint.h>
 
-class AkiDelayManager : public IBufferCallback<uint16_t>
+class AkiDelayManager : public IBufferCallback<uint16_t>, public IAkiDelayParameterEventListener
 {
 	public:
 		AkiDelayManager (IStorageMedia* delayBufferStorage);
@@ -20,6 +21,8 @@ class AkiDelayManager : public IBufferCallback<uint16_t>
 		void setFiltFreq (float filtFreq); // filtFreq should be in hertz
 
 		void call (uint16_t* writeBuffer) override;
+
+		void onAkiDelayParameterEvent (const AkiDelayParameterEvent& paramEvent) override;
 
 	private:
 		IStorageMedia* 	m_StorageMedia; // where delay buffer sits

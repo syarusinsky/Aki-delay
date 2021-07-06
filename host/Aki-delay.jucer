@@ -52,8 +52,21 @@
             file="../src/AkiDelayManager.cpp"/>
       <FILE id="dGesLA" name="AkiDelayManager.hpp" compile="0" resource="0"
             file="../include/AkiDelayManager.hpp"/>
+      <FILE id="GoZsLA" name="IAkiDelayParameterEventListener.hpp" compile="0"
+            resource="0" file="../include/IAkiDelayParameterEventListener.hpp"/>
+      <FILE id="GoZsQC" name="IAkiDelayParameterEventListener.cpp" compile="1"
+            resource="0" file="../src/IAkiDelayParameterEventListener.cpp"/>
+      <FILE id="GonrEA" name="AkiDelayUiManager.hpp" compile="0" resource="0"
+            file="../include/AkiDelayUiManager.hpp"/>
+      <FILE id="GonrED" name="AkiDelayUiManager.cpp" compile="1" resource="0"
+            file="../src/AkiDelayUiManager.cpp"/>
       <FILE id="IPGKLA" name="AkiDelayConstants.hpp" compile="0" resource="0"
             file="../include/AkiDelayConstants.hpp"/>
+      <FILE id="ItiKLA" name="AkiDelayMainImage.h" compile="0" resource="0"
+            file="../assets/AkiDelayMainImage.h"/>
+      <FILE id="ItiKLB" name="AkiDelayHiddenImage.h" compile="0" resource="0"
+            file="../assets/AkiDelayHiddenImage.h"/>
+      <FILE id="ItiKLC" name="Smoll.h" compile="0" resource="0" file="../assets/Smoll.h"/>
       <FILE id="wPWgYh" name="Font.cpp" compile="1" resource="0" file="../lib/SIGL/src/Font.cpp"/>
       <FILE id="IPesLA" name="Font.hpp" compile="0" resource="0" file="../lib/SIGL/include/Font.hpp"/>
       <FILE id="wPWgYh" name="FrameBuffer.cpp" compile="1" resource="0" file="../lib/SIGL/src/FrameBuffer.cpp"/>
@@ -78,7 +91,7 @@
     </GROUP>
   </MAINGROUP>
   <EXPORTFORMATS>
-    <LINUX_MAKE targetFolder="Builds/LinuxMakefile" extraCompilerFlags="-I../../../lib/SAL/include -I../../../include -I../../../lib/SIGL/include -I../../../lib/DevLib/include -I../../../lib/STM32f302x8-HAL/llpd/include -DSOFTWARE_RENDERING"
+    <LINUX_MAKE targetFolder="Builds/LinuxMakefile" extraCompilerFlags="-I../../../lib/SAL/include -I../../../include -I../../../lib/SIGL/include -I../../../lib/DevLib/include -I../../../lib/STM32f302x8-HAL/llpd/include -I../../../assets -DSOFTWARE_RENDERING"
                 extraDefs="DONT_SET_USING_JUCE_NAMESPACE">
       <CONFIGURATIONS>
         <CONFIGURATION isDebug="1" name="Debug"/>
