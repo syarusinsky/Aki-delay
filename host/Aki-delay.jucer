@@ -56,6 +56,10 @@
             resource="0" file="../include/IAkiDelayParameterEventListener.hpp"/>
       <FILE id="GoZsQC" name="IAkiDelayParameterEventListener.cpp" compile="1"
             resource="0" file="../src/IAkiDelayParameterEventListener.cpp"/>
+      <FILE id="zZZsLA" name="IAkiDelayLCDRefreshEventListener.hpp" compile="0"
+            resource="0" file="../include/IAkiDelayLCDRefreshEventListener.hpp"/>
+      <FILE id="zZZsLB" name="IAkiDelayLCDRefreshEventListener.cpp" compile="1"
+            resource="0" file="../src/IAkiDelayLCDRefreshEventListener.cpp"/>
       <FILE id="GonrEA" name="AkiDelayUiManager.hpp" compile="0" resource="0"
             file="../include/AkiDelayUiManager.hpp"/>
       <FILE id="GonrED" name="AkiDelayUiManager.cpp" compile="1" resource="0"

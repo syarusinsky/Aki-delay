@@ -14,6 +14,7 @@
 #include "FakeStorageDevice.hpp"
 #include "AkiDelayManager.hpp"
 #include "AkiDelayUiManager.hpp"
+#include "IAkiDelayLCDRefreshEventListener.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -24,7 +25,7 @@
    your controls and content.
    */
 class MainComponent   : public juce::AudioAppComponent, public juce::Slider::Listener, public juce::Button::Listener,
-			public juce::Timer
+			public juce::Timer, public IAkiDelayLCDRefreshEventListener
 {
 	public:
 		//==============================================================================
@@ -46,6 +47,8 @@ class MainComponent   : public juce::AudioAppComponent, public juce::Slider::Lis
 		void sliderValueChanged (juce::Slider* slider) override;
 		void buttonClicked (juce::Button* button) override;
 		void updateToggleState (juce::Button* button);
+
+		void onAkiDelayLCDRefreshEvent (const AkiDelayLCDRefreshEvent& lcdRefreshEvent) override;
 
 	private:
 		//==============================================================================

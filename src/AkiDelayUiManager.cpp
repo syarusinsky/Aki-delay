@@ -2,6 +2,7 @@
 
 #include "AkiDelayConstants.hpp"
 #include "IAkiDelayParameterEventListener.hpp"
+#include "IAkiDelayLCDRefreshEventListener.hpp"
 #include "Graphics.hpp"
 #include "Font.hpp"
 #include "Sprite.hpp"
@@ -19,7 +20,13 @@ AkiDelayUiManager::AkiDelayUiManager (uint8_t* fontData, uint8_t* mainImageData,
 	m_CurrentMenu( AKIDELAY_MENUS::MAIN ),
 	m_EffectBtn1PrevState( BUTTON_STATE::FLOATING ),
 	m_EffectBtn2PrevState( BUTTON_STATE::FLOATING ),
-	m_HiddenMenuHoldIncr( 0 )
+	m_HiddenMenuHoldIncr( 0 ),
+	m_Pot1StabilizerBuf{ 0.0f },
+	m_Pot2StabilizerBuf{ 0.0f },
+	m_Pot3StabilizerBuf{ 1.0f }, // we never want the filter value to be 0
+	m_Pot1StabilizerIndex( 0 ),
+	m_Pot2StabilizerIndex( 0 ),
+	m_Pot3StabilizerIndex( 0 )
 {
 	m_Graphics->setFont( m_Font );
 
@@ -45,6 +52,8 @@ void AkiDelayUiManager::draw()
 	m_Graphics->setColor( true );
 	m_Graphics->drawSprite( 0.0f, 0.0f, *m_MainImage );
 	// TODO need to send a screen refresh event
+
+	IAkiDelayLCDRefreshEventListener::PublishEvent( AkiDelayLCDRefreshEvent(0, 0, m_FrameBuffer->getWidth(), m_FrameBuffer->getHeight(), 0) );
 }
 
 void AkiDelayUiManager::onPotEvent (const PotEvent& potEvent)
@@ -53,24 +62,48 @@ void AkiDelayUiManager::onPotEvent (const PotEvent& potEvent)
 	POT_CHANNEL channelEnum = static_cast<POT_CHANNEL>( channel );
 	float percentage = potEvent.getPercentage();
 
-	// TODO we need to filter the percentage A LOT for it to work on target
+	float outputVal = 0.0f;
+	float* potStabilizerBuf = nullptr;
+	unsigned int* potStabilizerIndex = nullptr;
 
 	if ( channelEnum == POT_CHANNEL::DELAY_TIME )
 	{
 		unsigned int numSamplesInSrams = ( Sram_23K256::SRAM_SIZE * 4 ) / sizeof(uint16_t);
 		float maxDelayTime = static_cast<float>( numSamplesInSrams ) / static_cast<float>( SAMPLE_RATE );
-		float delayTime =  maxDelayTime * percentage;
-		IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(delayTime, channel) );
+		outputVal =  maxDelayTime * percentage; // delay time
+		potStabilizerBuf = m_Pot1StabilizerBuf;
+		potStabilizerIndex = &m_Pot1StabilizerIndex;
 	}
 	else if ( channelEnum == POT_CHANNEL::FEEDBACK )
 	{
-		IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(percentage, channel) );
+		outputVal = percentage; // feedback percentage
+		potStabilizerBuf = m_Pot2StabilizerBuf;
+		potStabilizerIndex = &m_Pot2StabilizerIndex;
 	}
 	else if ( channelEnum == POT_CHANNEL::FILT_FREQ )
 	{
-		float filterFreq = ( 20000.0f * percentage ) + 1.0f;
-		IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(filterFreq, channel) );
+		outputVal = ( 20000.0f * percentage ) + 1.0f; // filter frequency
+		potStabilizerBuf = m_Pot3StabilizerBuf;
+		potStabilizerIndex = &m_Pot3StabilizerIndex;
 	}
+	else
+	{
+		return;
+	}
+
+	// stabilize the potentiometer value by averaging all the values in the stabilizer buffers
+	float averageValue = outputVal;
+	for ( unsigned int index = 0; index < AKI_DELAY_POT_STABIL_NUM; index++ )
+	{
+		averageValue += potStabilizerBuf[index];
+	}
+	averageValue = averageValue / ( static_cast<float>(AKI_DELAY_POT_STABIL_NUM) + 1.0f );
+	potStabilizerBuf[*potStabilizerIndex] = averageValue;
+
+	// increment potStabilizer index
+	*potStabilizerIndex = ( *potStabilizerIndex + 1 ) % AKI_DELAY_POT_STABIL_NUM;
+
+	IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(averageValue, channel) );
 }
 
 void AkiDelayUiManager::onButtonEvent (const ButtonEvent& buttonEvent)

@@ -79,6 +79,7 @@ OBJECTS_APP := \
   $(JUCE_OBJDIR)/ColorProfile_54fec7c1.o \
   $(JUCE_OBJDIR)/AkiDelayManager_14cb1f84.o \
   $(JUCE_OBJDIR)/IAkiDelayParameterEventListener_5dad1aad.o \
+  $(JUCE_OBJDIR)/IAkiDelayLCDRefreshEventListener_8e2f2a2.o \
   $(JUCE_OBJDIR)/AkiDelayUiManager_15b133d0.o \
   $(JUCE_OBJDIR)/Font_e68320ca.o \
   $(JUCE_OBJDIR)/FrameBuffer_dd23fc3c.o \
@@ -168,6 +169,11 @@ $(JUCE_OBJDIR)/AkiDelayManager_14cb1f84.o: ../../../src/AkiDelayManager.cpp
 $(JUCE_OBJDIR)/IAkiDelayParameterEventListener_5dad1aad.o: ../../../src/IAkiDelayParameterEventListener.cpp
 	-$(V_AT)mkdir -p $(JUCE_OBJDIR)
 	@echo "Compiling IAkiDelayParameterEventListener.cpp"
+	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_APP) $(JUCE_CFLAGS_APP) -o "$@" -c "$<"
+
+$(JUCE_OBJDIR)/IAkiDelayLCDRefreshEventListener_8e2f2a2.o: ../../../src/IAkiDelayLCDRefreshEventListener.cpp
+	-$(V_AT)mkdir -p $(JUCE_OBJDIR)
+	@echo "Compiling IAkiDelayLCDRefreshEventListener.cpp"
 	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_APP) $(JUCE_CFLAGS_APP) -o "$@" -c "$<"
 
 $(JUCE_OBJDIR)/AkiDelayUiManager_15b133d0.o: ../../../src/AkiDelayUiManager.cpp

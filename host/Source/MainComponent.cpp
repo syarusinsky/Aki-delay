@@ -118,8 +118,9 @@ MainComponent::MainComponent() :
 
 	sAudioBuffer.registerCallback( &akiDelayManager );
 
+	this->bindToAkiDelayLCDRefreshEventSystem();
+
 	akiDelayUiManager.draw();
-	this->copyFrameBufferToImage( 0, 0, 256, 256 );
 }
 
 MainComponent::~MainComponent()
@@ -286,6 +287,13 @@ void MainComponent::updateToggleState (juce::Button* button)
 	{
 		std::cout << "Exception in toggle button shit: " << e.what() << std::endl;
 	}
+}
+
+void MainComponent::onAkiDelayLCDRefreshEvent (const AkiDelayLCDRefreshEvent& lcdRefreshEvent)
+{
+	this->copyFrameBufferToImage( lcdRefreshEvent.getXStart(), lcdRefreshEvent.getYStart(),
+					lcdRefreshEvent.getXEnd(), lcdRefreshEvent.getYEnd() );
+	this->repaint();
 }
 
 void MainComponent::copyFrameBufferToImage (unsigned int xStart, unsigned int yStart, unsigned int xEnd, unsigned int yEnd)

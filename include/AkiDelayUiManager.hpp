@@ -1,6 +1,7 @@
 #ifndef AKIDELAYUIMANAGER_HPP
 #define AKIDELAYUIMANAGER_HPP
 
+#include "AkiDelayConstants.hpp"
 #include "Surface.hpp"
 #include "IPotEventListener.hpp"
 #include "IButtonEventListener.hpp"
@@ -41,6 +42,13 @@ class AkiDelayUiManager : public Surface, public IPotEventListener, public IButt
 		BUTTON_STATE 	m_EffectBtn1PrevState;
 		BUTTON_STATE 	m_EffectBtn2PrevState;
 		unsigned int 	m_HiddenMenuHoldIncr;
+
+		float 		m_Pot1StabilizerBuf[AKI_DELAY_POT_STABIL_NUM];
+		float 		m_Pot2StabilizerBuf[AKI_DELAY_POT_STABIL_NUM];
+		float 		m_Pot3StabilizerBuf[AKI_DELAY_POT_STABIL_NUM];
+		unsigned int 	m_Pot1StabilizerIndex;
+		unsigned int 	m_Pot2StabilizerIndex;
+		unsigned int 	m_Pot3StabilizerIndex;
 };
 
 #endif // AKIDELAYUIMANAGER_HPP
