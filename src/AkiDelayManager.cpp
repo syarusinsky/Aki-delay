@@ -5,8 +5,6 @@
 
 #include <string.h>
 
-static const uint16_t softClipOffset = 0;
-
 AkiDelayManager::AkiDelayManager (IStorageMedia* delayBufferStorage) :
 	m_StorageMedia( delayBufferStorage ),
 	m_DelayTime( 0.0f ),
@@ -77,81 +75,101 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 			samplesToGlide = AKI_DELAY_MAX_GLIDE_SAMPLES;
 		}
 	}
-	samplesToGlide += ABUFFER_SIZE; // also need to incorporate the old or new read block
-
-	// read data from the storage device from the read index to the new read index or vice versa depending on glide direction
-	SharedData<uint8_t> glideData = SharedData<uint8_t>::MakeSharedDataNull();
-	if ( (m_GlideDirection && (oldReadIndex + samplesToGlide) <= m_DelayBufferSize)
-			|| (! m_GlideDirection && (newReadIndex + samplesToGlide) <= m_DelayBufferSize) )
-	{
-		// in this case we don't wrap around the storage buffer
-		SharedData<uint8_t> tempData = SharedData<uint8_t>::MakeSharedDataNull();
-		if ( m_GlideDirection ) // gliding forwards towards write index
-		{
-			tempData = m_StorageMedia->readFromMedia( samplesToGlide * sizeof(uint16_t), oldReadIndex * sizeof(uint16_t) );
-		}
-		else // gliding backwards away from write index
-		{
-			tempData = m_StorageMedia->readFromMedia( samplesToGlide * sizeof(uint16_t), newReadIndex * sizeof(uint16_t) );
-		}
-
-		glideData = tempData;
-	}
 	else
 	{
-		glideData = SharedData<uint8_t>::MakeSharedData( samplesToGlide * sizeof(uint16_t) );
-		uint16_t* glideDataPtr = reinterpret_cast<uint16_t*>( glideData.getPtr() );
-
-		// in this case we carefully wrap around the storage buffer
-		unsigned int endIndex = ( oldReadIndex > newReadIndex ) ? oldReadIndex : newReadIndex;
-		unsigned int firstHalfSize = m_DelayBufferSize - endIndex;
-		SharedData<uint8_t> tempFirstHalf = m_StorageMedia->readFromMedia( firstHalfSize * sizeof(uint16_t), endIndex * sizeof(uint16_t) );
-		uint16_t* tempFirstHalfPtr = reinterpret_cast<uint16_t*>( tempFirstHalf.getPtr() );
-		unsigned int secondHalfSize = samplesToGlide - firstHalfSize;
-		SharedData<uint8_t> tempSecondHalf = m_StorageMedia->readFromMedia( secondHalfSize * sizeof(uint16_t), 0 );
-		uint16_t* tempSecondHalfPtr = reinterpret_cast<uint16_t*>( tempSecondHalf.getPtr() );
-
-		for ( unsigned int sample = 0; sample < firstHalfSize; sample++ )
-		{
-			glideDataPtr[sample] = tempFirstHalfPtr[sample];
-		}
-		for ( unsigned int sample = firstHalfSize; sample < samplesToGlide; sample++ )
-		{
-			glideDataPtr[sample] = tempSecondHalfPtr[sample - firstHalfSize];
-		}
+		m_GlideDirection = true;
 	}
+	samplesToGlide += ABUFFER_SIZE; // also need to incorporate the old or new read block
 
-	// linearly interpolate between the glide samples into the read samples
-	uint16_t* glideDataPtr = reinterpret_cast<uint16_t*>( glideData.getPtr() );
-	float glideSampleIncr = static_cast<float>( samplesToGlide ) * ( 1.0f / ABUFFER_SIZE );
-	float currentGlideSample = 0.0f;
-	SharedData<uint8_t> readData = SharedData<uint8_t>::MakeSharedData( ABUFFER_SIZE * sizeof(uint16_t) );
-	uint16_t* readDataPtr = reinterpret_cast<uint16_t*>( readData.getPtr() );
-	for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
+	// TODO for some reason there's some funny business with MakeSharedDataNull, so we do this... investigate this later
+	SharedData<uint8_t> readData = SharedData<uint8_t>::MakeSharedData( 1 );
+	// scope to destroy glide data
 	{
-		readDataPtr[sample] = glideDataPtr[static_cast<unsigned int>(currentGlideSample)];
-		currentGlideSample += glideSampleIncr;
+		// read data from the storage device from the read index to the new read index or vice versa depending on glide direction
+		SharedData<uint8_t> glideData = SharedData<uint8_t>::MakeSharedData( 1 ); // TODO see above note
+		if ( (m_GlideDirection && (oldReadIndex + samplesToGlide) <= m_DelayBufferSize)
+				|| (! m_GlideDirection && (newReadIndex + samplesToGlide) <= m_DelayBufferSize) )
+		{
+			// in this case we don't wrap around the storage buffer
+			SharedData<uint8_t> tempData = SharedData<uint8_t>::MakeSharedData( 1 ); // TODO see above note
+			if ( m_GlideDirection ) // gliding forwards towards write index
+			{
+				tempData = m_StorageMedia->readFromMedia( samplesToGlide * sizeof(uint16_t), oldReadIndex * sizeof(uint16_t) );
+			}
+			else // gliding backwards away from write index
+			{
+				tempData = m_StorageMedia->readFromMedia( samplesToGlide * sizeof(uint16_t), newReadIndex * sizeof(uint16_t) );
+			}
+
+			glideData = tempData;
+		}
+		else
+		{
+			glideData = SharedData<uint8_t>::MakeSharedData( samplesToGlide * sizeof(uint16_t) );
+			uint16_t* glideDataPtr = reinterpret_cast<uint16_t*>( glideData.getPtr() );
+
+			// in this case we carefully wrap around the storage buffer
+			unsigned int endIndex = ( oldReadIndex > newReadIndex ) ? oldReadIndex : newReadIndex;
+			unsigned int firstHalfSize = m_DelayBufferSize - endIndex;
+			SharedData<uint8_t> tempFirstHalf = m_StorageMedia->readFromMedia( firstHalfSize * sizeof(uint16_t), endIndex * sizeof(uint16_t) );
+			uint16_t* tempFirstHalfPtr = reinterpret_cast<uint16_t*>( tempFirstHalf.getPtr() );
+			unsigned int secondHalfSize = samplesToGlide - firstHalfSize;
+			SharedData<uint8_t> tempSecondHalf = m_StorageMedia->readFromMedia( secondHalfSize * sizeof(uint16_t), 0 );
+			uint16_t* tempSecondHalfPtr = reinterpret_cast<uint16_t*>( tempSecondHalf.getPtr() );
+
+			for ( unsigned int sample = 0; sample < firstHalfSize; sample++ )
+			{
+				glideDataPtr[sample] = tempFirstHalfPtr[sample];
+			}
+			for ( unsigned int sample = firstHalfSize; sample < samplesToGlide; sample++ )
+			{
+				glideDataPtr[sample] = tempSecondHalfPtr[sample - firstHalfSize];
+			}
+		}
+
+		// linearly interpolate between the glide samples into the read samples
+		uint16_t* glideDataPtr = reinterpret_cast<uint16_t*>( glideData.getPtr() );
+		float glideSampleIncr = static_cast<float>( samplesToGlide ) * ( 1.0f / ABUFFER_SIZE );
+		float currentGlideSample = 0.0f;
+		if ( ! m_GlideDirection ) // gliding backwards away from write index
+		{
+			glideSampleIncr = glideSampleIncr * -1.0f;
+			currentGlideSample = static_cast<float>( samplesToGlide + glideSampleIncr );
+		}
+		readData = SharedData<uint8_t>::MakeSharedData( ABUFFER_SIZE * sizeof(uint16_t) );
+		uint16_t* readDataPtr = reinterpret_cast<uint16_t*>( readData.getPtr() );
+		for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
+		{
+			readDataPtr[sample] = glideDataPtr[static_cast<unsigned int>(currentGlideSample)];
+			currentGlideSample += glideSampleIncr;
+		}
 	}
+
 	// increment read index
 	m_ReadIndex = ( newReadIndex + ABUFFER_SIZE ) % m_DelayBufferSize;
 
-	// write the data currently in the write buffer (which was read from ADC) to the storage device at the write index
-	SharedData<uint8_t> writeData = SharedData<uint8_t>::MakeSharedData( ABUFFER_SIZE * sizeof(uint16_t) );
-	uint16_t* writeDataPtr = reinterpret_cast<uint16_t*>( writeData.getPtr() );
-
-	for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
+	// scope to destroy write data
 	{
-		float outSample = ( writeBuffer[sample] + (readDataPtr[sample] * feedback) ) * 0.5f;
-		float filteredSample = m_Filt.processSample( outSample );
+		// write the data currently in the write buffer (which was read from ADC) to the storage device at the write index
+		SharedData<uint8_t> writeData = SharedData<uint8_t>::MakeSharedData( ABUFFER_SIZE * sizeof(uint16_t) );
+		uint16_t* writeDataPtr = reinterpret_cast<uint16_t*>( writeData.getPtr() );
+		uint16_t* readDataPtr = reinterpret_cast<uint16_t*>( readData.getPtr() );
 
-		writeDataPtr[sample] = static_cast<uint16_t>( filteredSample );
+		for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
+		{
+			float outSample = ( writeBuffer[sample] + (readDataPtr[sample] * feedback) ) * 0.5f;
+			float filteredSample = m_Filt.processSample( outSample );
+
+			writeDataPtr[sample] = static_cast<uint16_t>( filteredSample );
+		}
+
+		// we don't need to worry about the wrapping issue since writing is always done in block sizes that fit nicely into the storage buffer
+		m_StorageMedia->writeToMedia( writeData, m_WriteIndex * sizeof(uint16_t) );
+		m_WriteIndex = ( m_WriteIndex + ABUFFER_SIZE ) % m_DelayBufferSize;
 	}
 
-	// we don't need to worry about the wrapping issue since writing is always done in block sizes that fit nicely into the storage buffer
-	m_StorageMedia->writeToMedia( writeData, m_WriteIndex * sizeof(uint16_t) );
-	m_WriteIndex = ( m_WriteIndex + ABUFFER_SIZE ) % m_DelayBufferSize;
-
 	// write read data to write buffer
+	uint16_t* readDataPtr = reinterpret_cast<uint16_t*>( readData.getPtr() );
 	for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
 	{
 		// we also need to offset the 1.5 gain from the soft clipper, otherwise the clipping sounds a bit ugly

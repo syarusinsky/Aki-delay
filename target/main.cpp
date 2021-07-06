@@ -201,6 +201,7 @@ int main(void)
 	{
 		LLPD::usart_log( USART_NUM::USART_3, "WARNING!!! srams failed verification..." );
 	}
+	srams.setSequentialMode( true );
 
 	// SD Card setup and test TODO this currently isn't working correctly so it's been commented out
 	/*
@@ -254,10 +255,51 @@ int main(void)
 
 	audioBuffer.registerCallback( &akiDelayManager );
 
+	// TODO temporary to test the sram manager
+	/*
+	unsigned int sampleIndex = 47;
+	for ( unsigned int tries = 0; tries < 10; tries++ ) // run the verification through the sram a given number of times
+	{
+		while ( sampleIndex < (Sram_23K256::SRAM_SIZE * 4) / sizeof(uint16_t) )
+		{
+			if ( sampleIndex == 16175 )
+			{
+				sampleIndex = 16175;
+			}
+
+			// write to media
+			SharedData<uint8_t> writeData = SharedData<uint8_t>::MakeSharedData( ABUFFER_SIZE * sizeof(uint16_t) );
+			uint16_t* writeDataPtr = reinterpret_cast<uint16_t*>( writeData.getPtr() );
+			for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
+			{
+				writeDataPtr[sample] = sample;
+			}
+			srams.writeToMedia( writeData, sampleIndex * sizeof(uint16_t) );
+
+			// ensure the read data is the same
+			SharedData<uint8_t> readData = srams.readFromMedia( ABUFFER_SIZE * sizeof(uint16_t), sampleIndex * sizeof(uint16_t) );
+			uint16_t* readDataPtr = reinterpret_cast<uint16_t*>( readData.getPtr() );
+			for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
+			{
+				if ( writeDataPtr[sample] != readDataPtr[sample] )
+				{
+					while ( true ) {} // spinlock cause something dumb happened
+				}
+			}
+
+			// go to next block
+			sampleIndex = ( sampleIndex + ABUFFER_SIZE ) % ( (Sram_23K256::SRAM_SIZE * 4) / sizeof(uint16_t) );
+		}
+	}
+	*/
+
+	akiDelayManager.setFeedback( 0.5f );
+
 	akiDelayReady = true;
 
 	while ( true )
 	{
+		/*
 		if ( ! LLPD::gpio_input_get(EFFECT1_BUTTON_PORT, EFFECT1_BUTTON_PIN) )
 		{
 			LLPD::usart_log( USART_NUM::USART_3, "BUTTON 1 PRESSED" );
@@ -267,10 +309,13 @@ int main(void)
 		{
 			LLPD::usart_log( USART_NUM::USART_3, "BUTTON 2 PRESSED" );
 		}
+		*/
 
-		LLPD::usart_log_int( USART_NUM::USART_3, "POT 1 VALUE: ", LLPD::adc_get_channel_value(EFFECT1_ADC_CHANNEL) );
-		LLPD::usart_log_int( USART_NUM::USART_3, "POT 2 VALUE: ", LLPD::adc_get_channel_value(EFFECT2_ADC_CHANNEL) );
-		LLPD::usart_log_int( USART_NUM::USART_3, "POT 3 VALUE: ", LLPD::adc_get_channel_value(EFFECT3_ADC_CHANNEL) );
+		uint16_t pot1Val = LLPD::adc_get_channel_value( EFFECT1_ADC_CHANNEL );
+		pot1Val = ( pot1Val > 3000 ) ? 3000 : 0;
+		unsigned int numSamplesInSrams = ( Sram_23K256::SRAM_SIZE * 4 ) / sizeof(uint16_t);
+		float delayTime =  static_cast<float>( numSamplesInSrams / SAMPLE_RATE ) * ( pot1Val * (1.0f / 4095.0f) );
+		akiDelayManager.setDelayTime( delayTime );
 
 		audioBuffer.pollToFillBuffers();
 	}
