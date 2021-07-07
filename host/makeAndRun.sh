@@ -1,4 +1,4 @@
 cd Builds/LinuxMakefile
-make CONFIG=Debug -j4
+make CONFIG=Release -j4
 ./build/Aki-delay
 cd ../../

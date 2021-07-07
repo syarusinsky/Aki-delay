@@ -28,7 +28,14 @@ AkiDelayManager::~AkiDelayManager()
 void AkiDelayManager::setDelayTime (float delayTime)
 {
 	// if delay time is less, we need to glide forward towards write index
-	m_GlideDirection = ( delayTime < m_DelayTime ) ? true : false;
+	if ( delayTime < m_DelayTime )
+	{
+		m_GlideDirection = true;
+	}
+	else if ( delayTime > m_DelayTime ) // likewise if delay time is more, we need to glide backwards away from write index
+	{
+		m_GlideDirection = false;
+	}
 	m_DelayTime = delayTime;
 }
 
@@ -132,23 +139,30 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 		// linearly interpolate between the glide samples into the read samples
 		uint16_t* glideDataPtr = reinterpret_cast<uint16_t*>( glideData.getPtr() );
 		float glideSampleIncr = static_cast<float>( samplesToGlide ) * ( 1.0f / ABUFFER_SIZE );
-		float currentGlideSample = 0.0f;
+		float currentGlideSampleNum = 0.0f;
 		if ( ! m_GlideDirection ) // gliding backwards away from write index
 		{
 			glideSampleIncr = glideSampleIncr * -1.0f;
-			currentGlideSample = static_cast<float>( samplesToGlide + glideSampleIncr );
+			currentGlideSampleNum = static_cast<float>( samplesToGlide + glideSampleIncr );
 		}
 		readData = SharedData<uint8_t>::MakeSharedData( ABUFFER_SIZE * sizeof(uint16_t) );
 		uint16_t* readDataPtr = reinterpret_cast<uint16_t*>( readData.getPtr() );
 		for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
 		{
-			readDataPtr[sample] = glideDataPtr[static_cast<unsigned int>(currentGlideSample)];
-			currentGlideSample += glideSampleIncr;
+			readDataPtr[sample] = glideDataPtr[static_cast<unsigned int>(currentGlideSampleNum)];
+			currentGlideSampleNum += glideSampleIncr;
 		}
 	}
 
 	// increment read index
-	m_ReadIndex = ( newReadIndex + ABUFFER_SIZE ) % m_DelayBufferSize;
+	if ( m_GlideDirection ) // gliding forwards towards write head
+	{
+		m_ReadIndex = ( newReadIndex + ABUFFER_SIZE ) % m_DelayBufferSize;
+	}
+	else // gliding backwards away from write head
+	{
+		m_ReadIndex = ( newReadIndex - ABUFFER_SIZE > 0 ) ? newReadIndex - ABUFFER_SIZE : m_DelayBufferSize + ( newReadIndex - ABUFFER_SIZE );
+	}
 
 	// scope to destroy write data
 	{
