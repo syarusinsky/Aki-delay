@@ -8,6 +8,16 @@
 #include "OLED_SH1106.hpp"
 #include "AudioBuffer.hpp"
 #include "AkiDelayManager.hpp"
+#include "AkiDelayUiManager.hpp"
+#include "IPotEventListener.hpp"
+#include "IButtonEventListener.hpp"
+#include "IAkiDelayLCDRefreshEventListener.hpp"
+#include "FrameBuffer.hpp"
+
+// assets
+#include "AkiDelayMainImage.h"
+#include "AkiDelayHiddenImage.h"
+#include "Smoll.h"
 
 // to disassemble -- arm-none-eabi-objdump -S --disassemble main_debug.elf > disassembled.s
 
@@ -56,6 +66,54 @@ AudioBuffer<uint16_t>* audioBufferPtr = nullptr;
 #define OLED_DC_PIN 		GPIO_PIN::PIN_8
 #define OLED_CS_PORT 		GPIO_PORT::B
 #define OLED_CS_PIN 		GPIO_PIN::PIN_9
+
+// a simple class to handle lcd refresh events
+class Oled_Manager : public IAkiDelayLCDRefreshEventListener
+{
+	public:
+		Oled_Manager (uint8_t* displayBuffer) :
+			m_Oled( SPI_NUM::SPI_2, OLED_CS_PORT, OLED_CS_PIN, OLED_DC_PORT, OLED_DC_PIN, OLED_RESET_PORT, OLED_RESET_PIN ),
+			m_DisplayBuffer( displayBuffer )
+		{
+			LLPD::gpio_output_setup( OLED_CS_PORT, OLED_CS_PIN, GPIO_PUPD::NONE, GPIO_OUTPUT_TYPE::PUSH_PULL,
+							GPIO_OUTPUT_SPEED::HIGH, false );
+			LLPD::gpio_output_set( OLED_CS_PORT, OLED_CS_PIN, true );
+			LLPD::gpio_output_setup( OLED_DC_PORT, OLED_DC_PIN, GPIO_PUPD::NONE, GPIO_OUTPUT_TYPE::PUSH_PULL,
+							GPIO_OUTPUT_SPEED::HIGH, false );
+			LLPD::gpio_output_set( OLED_DC_PORT, OLED_DC_PIN, true );
+			LLPD::gpio_output_setup( OLED_RESET_PORT, OLED_RESET_PIN, GPIO_PUPD::NONE, GPIO_OUTPUT_TYPE::PUSH_PULL,
+							GPIO_OUTPUT_SPEED::HIGH, false );
+			LLPD::gpio_output_set( OLED_RESET_PORT, OLED_RESET_PIN, true );
+
+			m_Oled.begin();
+
+			this->bindToAkiDelayLCDRefreshEventSystem();
+		}
+		~Oled_Manager() override
+		{
+			this->unbindFromAkiDelayLCDRefreshEventSystem();
+		}
+
+		void onAkiDelayLCDRefreshEvent (const AkiDelayLCDRefreshEvent& lcdRefreshEvent) override
+		{
+			unsigned int columnStart = lcdRefreshEvent.getXStart();
+			unsigned int rowStart = lcdRefreshEvent.getYStart();
+			unsigned int columnEnd = lcdRefreshEvent.getXEnd();
+			unsigned int rowEnd = lcdRefreshEvent.getYEnd();
+			if ( columnEnd - columnStart == SH1106_LCDWIDTH && rowEnd - rowStart == SH1106_LCDHEIGHT )
+			{
+				m_Oled.displayFullRowMajor( m_DisplayBuffer );
+			}
+			else
+			{
+				m_Oled.displayPartialRowMajor( m_DisplayBuffer, rowStart, columnStart, rowEnd, columnEnd );
+			}
+		}
+
+	private:
+		Oled_SH1106 	m_Oled;
+		uint8_t* 	m_DisplayBuffer;
+};
 
 // these pins are unconnected on Gen_FX_SYN Rev 2 development board, so we disable them as per the ST recommendations
 void disableUnusedPins()
@@ -225,6 +283,7 @@ int main(void)
 	}
 	*/
 
+	/* TODO this was test code, remove it after testing Oled_Manager
 	// display buffer
 	uint8_t displayBuffer[(SH1106_LCDWIDTH * SH1106_LCDHEIGHT) / 8] = { 0 };
 
@@ -245,6 +304,7 @@ int main(void)
 	oled.begin();
 	oled.displayFullRowMajor( displayBuffer );
 	LLPD::usart_log( USART_NUM::USART_3, "oled initialized..." );
+	*/
 
 	LLPD::usart_log( USART_NUM::USART_3, "Gen_FX_SYN setup complete, entering while loop -------------------------------" );
 
@@ -252,48 +312,15 @@ int main(void)
 	audioBufferPtr = &audioBuffer;
 
 	AkiDelayManager akiDelayManager( &srams );
+	AkiDelayUiManager akiDelayUiManager( Smoll_data, AkiDelayMainImage_data, AkiDelayHiddenImage_data );
+
+	Oled_Manager oled( akiDelayUiManager.getFrameBuffer()->getPixels() );
+	LLPD::usart_log( USART_NUM::USART_3, "oled initialized..." );
+
+	// initial drawing of the UI
+	akiDelayUiManager.draw();
 
 	audioBuffer.registerCallback( &akiDelayManager );
-
-	// TODO temporary to test the sram manager
-	/*
-	unsigned int sampleIndex = 47;
-	for ( unsigned int tries = 0; tries < 10; tries++ ) // run the verification through the sram a given number of times
-	{
-		while ( sampleIndex < (Sram_23K256::SRAM_SIZE * 4) / sizeof(uint16_t) )
-		{
-			if ( sampleIndex == 16175 )
-			{
-				sampleIndex = 16175;
-			}
-
-			// write to media
-			SharedData<uint8_t> writeData = SharedData<uint8_t>::MakeSharedData( ABUFFER_SIZE * sizeof(uint16_t) );
-			uint16_t* writeDataPtr = reinterpret_cast<uint16_t*>( writeData.getPtr() );
-			for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
-			{
-				writeDataPtr[sample] = sample;
-			}
-			srams.writeToMedia( writeData, sampleIndex * sizeof(uint16_t) );
-
-			// ensure the read data is the same
-			SharedData<uint8_t> readData = srams.readFromMedia( ABUFFER_SIZE * sizeof(uint16_t), sampleIndex * sizeof(uint16_t) );
-			uint16_t* readDataPtr = reinterpret_cast<uint16_t*>( readData.getPtr() );
-			for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
-			{
-				if ( writeDataPtr[sample] != readDataPtr[sample] )
-				{
-					while ( true ) {} // spinlock cause something dumb happened
-				}
-			}
-
-			// go to next block
-			sampleIndex = ( sampleIndex + ABUFFER_SIZE ) % ( (Sram_23K256::SRAM_SIZE * 4) / sizeof(uint16_t) );
-		}
-	}
-	*/
-
-	akiDelayManager.setFeedback( 0.5f );
 
 	akiDelayReady = true;
 
@@ -312,10 +339,16 @@ int main(void)
 		*/
 
 		uint16_t pot1Val = LLPD::adc_get_channel_value( EFFECT1_ADC_CHANNEL );
-		pot1Val = ( pot1Val > 3000 ) ? 3000 : 0;
-		unsigned int numSamplesInSrams = ( Sram_23K256::SRAM_SIZE * 4 ) / sizeof(uint16_t);
-		float delayTime =  static_cast<float>( numSamplesInSrams / SAMPLE_RATE ) * ( pot1Val * (1.0f / 4095.0f) );
-		akiDelayManager.setDelayTime( delayTime );
+		float pot1Percentage = static_cast<float>( pot1Val ) * ( 1.0f / 4095.0f );
+		IPotEventListener::PublishEvent( PotEvent(pot1Percentage, static_cast<unsigned int>(POT_CHANNEL::DELAY_TIME)) );
+
+		uint16_t pot2Val = LLPD::adc_get_channel_value( EFFECT2_ADC_CHANNEL );
+		float pot2Percentage = static_cast<float>( pot2Val ) * ( 1.0f / 4095.0f );
+		IPotEventListener::PublishEvent( PotEvent(pot2Percentage, static_cast<unsigned int>(POT_CHANNEL::FEEDBACK)) );
+
+		uint16_t pot3Val = LLPD::adc_get_channel_value( EFFECT3_ADC_CHANNEL );
+		float pot3Percentage = static_cast<float>( pot3Val ) * ( 1.0f / 4095.0f );
+		IPotEventListener::PublishEvent( PotEvent(pot3Percentage, static_cast<unsigned int>(POT_CHANNEL::FILT_FREQ)) );
 
 		audioBuffer.pollToFillBuffers();
 	}

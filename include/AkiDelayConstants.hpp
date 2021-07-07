@@ -9,7 +9,11 @@ const unsigned int AKI_DELAY_MAX_GLIDE_SAMPLES = 426; // similar to host value c
 const unsigned int AKI_DELAY_MAX_GLIDE_SAMPLES = ABUFFER_SIZE * 2; // should be 512 * 2 = 1024
 #endif
 
-const unsigned int AKI_DELAY_POT_STABIL_NUM = 10; // used for stabilizing the erratic potentiometer readings
+const float AKI_DELAY_MAX_FILT_FREQ = 20000.0f;
+const float AKI_DELAY_MIN_FILT_FREQ = 1.0f;
+
+const unsigned int AKI_DELAY_POT_STABIL_NUM = 50; // pot stabilization stuff, see AkiDelayUiManager
+const float AKI_DELAY_POT_STABIL_ALLOWED_SCATTER = 0.1f; // allow 10% of jitter on pots
 
 enum class POT_CHANNEL : unsigned int
 {

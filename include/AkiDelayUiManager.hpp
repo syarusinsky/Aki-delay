@@ -5,6 +5,7 @@
 #include "Surface.hpp"
 #include "IPotEventListener.hpp"
 #include "IButtonEventListener.hpp"
+#include "IAkiDelayLCDRefreshEventListener.hpp"
 
 #include <stdint.h>
 
@@ -29,8 +30,6 @@ class AkiDelayUiManager : public Surface, public IPotEventListener, public IButt
 
 		void onButtonEvent (const ButtonEvent& buttonEvent) override;
 
-		void switchToHiddenMenu();
-
 	private:
 		Font* 		m_Font;
 
@@ -49,6 +48,23 @@ class AkiDelayUiManager : public Surface, public IPotEventListener, public IButt
 		unsigned int 	m_Pot1StabilizerIndex;
 		unsigned int 	m_Pot2StabilizerIndex;
 		unsigned int 	m_Pot3StabilizerIndex;
+		float 		m_Pot1StabilizerValue; // we use this as the actual value to send
+		float 		m_Pot2StabilizerValue;
+		float 		m_Pot3StabilizerValue;
+		float 		m_Pot1StabilizerCachedPer; // cached percentage for hysteresis
+		float 		m_Pot2StabilizerCachedPer;
+		float 		m_Pot3StabilizerCachedPer;
+
+		void switchToHiddenMenu();
+		void updateParameterString (float value, const POT_CHANNEL& channel);
+
+		AkiDelayLCDRefreshEvent generatePartialLCDRefreshEvent (float xStart, float yStart, float xEnd, float yEnd);
+
+		// note: this truncates ungracefully if bufferLen is smaller than needed
+		void intToCString (int val, char* buffer, unsigned int bufferLen);
+
+		void concatDigitStr (int val, char* sourceBuffer, char* destBuffer, unsigned int offset, unsigned int digitWidth,
+					int decimalPlaceIndex = -1);
 };
 
 #endif // AKIDELAYUIMANAGER_HPP
