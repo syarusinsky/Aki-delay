@@ -198,13 +198,15 @@ void AkiDelayUiManager::switchToHiddenMenu()
 
 void AkiDelayUiManager::updateParameterString (float value, const POT_CHANNEL& channel)
 {
+	// TODO right now this isn't performant enough to run on Gen_FX_SYN rev 2,... so forget it
+	/*
 	// TODO lots of repetition here, clean it up eventually...
 	if ( channel == POT_CHANNEL::DELAY_TIME )
 	{
 		unsigned int dTimeInt = value * 100.0f;
-		char buffer[10] = { '0' };
+		char buffer[5] = { '0' };
 		this->intToCString( dTimeInt, buffer, 10 );
-		char bufferFinal[10] = { '0' };
+		char bufferFinal[5] = { '0' };
 		bufferFinal[1] = '.';
 		this->concatDigitStr( dTimeInt, buffer, bufferFinal, 0, 4, 2 );
 
@@ -216,15 +218,13 @@ void AkiDelayUiManager::updateParameterString (float value, const POT_CHANNEL& c
 		m_Graphics->drawBoxFilled( xStart, yStart, xEnd, yEnd );
 		m_Graphics->setColor( true );
 		m_Graphics->drawText( xStart, yStart, bufferFinal, 1.0f );
-
-		IAkiDelayLCDRefreshEventListener::PublishEvent( this->generatePartialLCDRefreshEvent(xStart, yStart, xEnd, yEnd) );
 	}
 	else if ( channel == POT_CHANNEL::FEEDBACK )
 	{
 		unsigned int feedbackInt = value * 100.0f;
-		char buffer[10] = { '0' };
+		char buffer[5] = { '0' };
 		this->intToCString( feedbackInt, buffer, 10 );
-		char bufferFinal[10] = { '0' };
+		char bufferFinal[5] = { '0' };
 		bufferFinal[1] = '.';
 		this->concatDigitStr( feedbackInt, buffer, bufferFinal, 0, 4, 2 );
 
@@ -236,15 +236,13 @@ void AkiDelayUiManager::updateParameterString (float value, const POT_CHANNEL& c
 		m_Graphics->drawBoxFilled( xStart, yStart, xEnd, yEnd );
 		m_Graphics->setColor( true );
 		m_Graphics->drawText( xStart, yStart + 0.018f, bufferFinal, 1.0f );
-
-		IAkiDelayLCDRefreshEventListener::PublishEvent( this->generatePartialLCDRefreshEvent(xStart, yStart, xEnd, yEnd) );
 	}
 	else if ( channel == POT_CHANNEL::FILT_FREQ )
 	{
 		unsigned int filtFreqInt = value * 0.1f;
-		char buffer[10] = { '0' };
+		char buffer[5] = { '0' };
 		this->intToCString( filtFreqInt, buffer, 10 );
-		char bufferFinal[10] = { '0' };
+		char bufferFinal[5] = { '0' };
 		this->concatDigitStr( filtFreqInt, buffer, bufferFinal, 0, 4 );
 		bufferFinal[2] = '.'; // TODO techically inaccurate, but will have to do for now
 
@@ -256,9 +254,8 @@ void AkiDelayUiManager::updateParameterString (float value, const POT_CHANNEL& c
 		m_Graphics->drawBoxFilled( xStart, yStart, xEnd, yEnd );
 		m_Graphics->setColor( true );
 		m_Graphics->drawText( xStart, yStart + 0.04f, bufferFinal, 1.0f );
-
-		IAkiDelayLCDRefreshEventListener::PublishEvent( this->generatePartialLCDRefreshEvent(xStart, yStart, xEnd, yEnd) );
 	}
+	*/
 }
 
 void AkiDelayUiManager::intToCString (int val, char* buffer, unsigned int bufferLen)

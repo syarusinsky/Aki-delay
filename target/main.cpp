@@ -106,7 +106,7 @@ class Oled_Manager : public IAkiDelayLCDRefreshEventListener
 			}
 			else
 			{
-				m_Oled.displayPartialRowMajor( m_DisplayBuffer, rowStart, columnStart, rowEnd, columnEnd );
+				m_Oled.displayPartialRowMajor( m_DisplayBuffer, rowEnd, columnEnd, rowStart, columnStart );
 			}
 		}
 
@@ -326,17 +326,27 @@ int main(void)
 
 	while ( true )
 	{
-		/*
 		if ( ! LLPD::gpio_input_get(EFFECT1_BUTTON_PORT, EFFECT1_BUTTON_PIN) )
 		{
-			LLPD::usart_log( USART_NUM::USART_3, "BUTTON 1 PRESSED" );
+			IButtonEventListener::PublishEvent(
+					ButtonEvent(BUTTON_STATE::PRESSED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_1)) );
+		}
+		else
+		{
+			IButtonEventListener::PublishEvent(
+					ButtonEvent(BUTTON_STATE::RELEASED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_1)) );
 		}
 
 		if ( ! LLPD::gpio_input_get(EFFECT2_BUTTON_PORT, EFFECT2_BUTTON_PIN) )
 		{
-			LLPD::usart_log( USART_NUM::USART_3, "BUTTON 2 PRESSED" );
+			IButtonEventListener::PublishEvent(
+					ButtonEvent(BUTTON_STATE::PRESSED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_2)) );
 		}
-		*/
+		else
+		{
+			IButtonEventListener::PublishEvent(
+					ButtonEvent(BUTTON_STATE::RELEASED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_2)) );
+		}
 
 		uint16_t pot1Val = LLPD::adc_get_channel_value( EFFECT1_ADC_CHANNEL );
 		float pot1Percentage = static_cast<float>( pot1Val ) * ( 1.0f / 4095.0f );
