@@ -37,7 +37,7 @@ class AkiDelayManager : public IBufferCallback<uint16_t>, public IAkiDelayParame
 
 		bool 		m_GlideDirection; // if true, we're gliding our read pointer forwards toward the write pointer, else backwards
 
-		OnePoleFilter 	m_Filt;
+		OnePoleFilter<float> 	m_Filt;
 		SoftClipper<uint16_t> 	m_SoftClipper;
 };
 
