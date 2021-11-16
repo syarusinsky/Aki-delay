@@ -14,6 +14,7 @@ AkiDelayManager::AkiDelayManager (IStorageMedia* delayBufferStorage) :
 	m_WriteIndex( ABUFFER_SIZE ),
 	m_ReadIndex( 0 ),
 	m_GlideDirection( true ),
+	m_NoiseGate( 0.02f, 100.0f, 100 ),
 	m_Filt(),
 	m_SoftClipper()
 {
@@ -52,6 +53,21 @@ void AkiDelayManager::setFiltFreq (float filtFreq)
 
 void AkiDelayManager::call (uint16_t* writeBuffer)
 {
+	// first offset for noise gate
+	int16_t* writeBufferInt16 = reinterpret_cast<int16_t*>( writeBuffer );
+	for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
+	{
+		writeBuffer[sample] -= 2048;
+	}
+
+	m_NoiseGate.call( writeBufferInt16 );
+
+	// offset back
+	for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
+	{
+		writeBuffer[sample] += 2048;
+	}
+
 	// set correct read index, feedback amount, and filter frequency for this block
 	unsigned int delayTimeInSamples = static_cast<unsigned int>( m_DelayTime * SAMPLE_RATE );
 	// ensure that the read index at least lags behind the write index by ABUFFER_SIZE samples

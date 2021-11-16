@@ -7,6 +7,7 @@
 #include "OnePoleFilter.hpp"
 #include "SoftClipper.hpp"
 #include "IAkiDelayParameterEventListener.hpp"
+#include "NoiseGate.hpp"
 
 #include <stdint.h>
 
@@ -37,6 +38,7 @@ class AkiDelayManager : public IBufferCallback<uint16_t>, public IAkiDelayParame
 
 		bool 		m_GlideDirection; // if true, we're gliding our read pointer forwards toward the write pointer, else backwards
 
+		NoiseGate<int16_t> 	m_NoiseGate;
 		OnePoleFilter<float> 	m_Filt;
 		SoftClipper<uint16_t> 	m_SoftClipper;
 };
