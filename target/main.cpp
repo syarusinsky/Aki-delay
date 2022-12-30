@@ -125,29 +125,59 @@ void disableUnusedPins()
 	LLPD::gpio_output_setup( GPIO_PORT::C, GPIO_PIN::PIN_15, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
 					GPIO_OUTPUT_SPEED::LOW );
 
+	LLPD::gpio_output_setup( GPIO_PORT::A, GPIO_PIN::PIN_5, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+					GPIO_OUTPUT_SPEED::LOW );
+	LLPD::gpio_output_setup( GPIO_PORT::A, GPIO_PIN::PIN_6, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+					GPIO_OUTPUT_SPEED::LOW );
+	LLPD::gpio_output_setup( GPIO_PORT::A, GPIO_PIN::PIN_7, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+					GPIO_OUTPUT_SPEED::LOW );
 	LLPD::gpio_output_setup( GPIO_PORT::A, GPIO_PIN::PIN_8, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+					GPIO_OUTPUT_SPEED::LOW );
+	LLPD::gpio_output_setup( GPIO_PORT::A, GPIO_PIN::PIN_9, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+					GPIO_OUTPUT_SPEED::LOW );
+	LLPD::gpio_output_setup( GPIO_PORT::A, GPIO_PIN::PIN_10, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+					GPIO_OUTPUT_SPEED::LOW );
+	LLPD::gpio_output_setup( GPIO_PORT::A, GPIO_PIN::PIN_11, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
 					GPIO_OUTPUT_SPEED::LOW );
 	LLPD::gpio_output_setup( GPIO_PORT::A, GPIO_PIN::PIN_12, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
 					GPIO_OUTPUT_SPEED::LOW );
+	// PROGRAMMING PINS, DON'T MESS WITH
+	// LLPD::gpio_output_setup( GPIO_PORT::A, GPIO_PIN::PIN_13, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+	// 				GPIO_OUTPUT_SPEED::LOW );
+	// LLPD::gpio_output_setup( GPIO_PORT::A, GPIO_PIN::PIN_14, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+	// 				GPIO_OUTPUT_SPEED::LOW );
 	LLPD::gpio_output_setup( GPIO_PORT::A, GPIO_PIN::PIN_15, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
 					GPIO_OUTPUT_SPEED::LOW );
 
-	LLPD::gpio_output_setup( GPIO_PORT::B, GPIO_PIN::PIN_2, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+	LLPD::gpio_output_setup( GPIO_PORT::B, GPIO_PIN::PIN_0, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
 					GPIO_OUTPUT_SPEED::LOW );
-	LLPD::gpio_output_setup( GPIO_PORT::B, GPIO_PIN::PIN_3, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
-					GPIO_OUTPUT_SPEED::LOW );
-	LLPD::gpio_output_setup( GPIO_PORT::B, GPIO_PIN::PIN_4, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+	LLPD::gpio_output_setup( GPIO_PORT::B, GPIO_PIN::PIN_1, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
 					GPIO_OUTPUT_SPEED::LOW );
 	LLPD::gpio_output_setup( GPIO_PORT::B, GPIO_PIN::PIN_5, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
 					GPIO_OUTPUT_SPEED::LOW );
 	LLPD::gpio_output_setup( GPIO_PORT::B, GPIO_PIN::PIN_6, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
 					GPIO_OUTPUT_SPEED::LOW );
+	LLPD::gpio_output_setup( GPIO_PORT::B, GPIO_PIN::PIN_7, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+					GPIO_OUTPUT_SPEED::LOW );
+	LLPD::gpio_output_setup( GPIO_PORT::B, GPIO_PIN::PIN_8, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+					GPIO_OUTPUT_SPEED::LOW );
+	LLPD::gpio_output_setup( GPIO_PORT::B, GPIO_PIN::PIN_9, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+					GPIO_OUTPUT_SPEED::LOW );
+	LLPD::gpio_output_setup( GPIO_PORT::B, GPIO_PIN::PIN_10, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+					GPIO_OUTPUT_SPEED::LOW );
+	LLPD::gpio_output_setup( GPIO_PORT::B, GPIO_PIN::PIN_11, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
+					GPIO_OUTPUT_SPEED::LOW );
 }
 
 int main(void)
 {
+	for ( unsigned int i = 0; i < 10000000; i++ )
+	{
+		asm("NOP");
+	}
+
 	// set system clock to PLL with HSE (16MHz / 2) as input, so 72MHz system clock speed
-	LLPD::rcc_clock_setup( RCC_CLOCK_SOURCE::EXTERNAL, true, RCC_PLL_MULTIPLY::BY_8, SYS_CLOCK_FREQUENCY );
+	LLPD::rcc_clock_setup( RCC_CLOCK_SOURCE::EXTERNAL, true, RCC_PLL_MULTIPLY::BY_9, SYS_CLOCK_FREQUENCY );
 
 	// prescale APB1 by 2, since the maximum clock speed is 36MHz
 	LLPD::rcc_set_periph_clock_prescalers( RCC_AHB_PRES::BY_1, RCC_APB1_PRES::AHB_BY_2, RCC_APB2_PRES::AHB_BY_1 );
@@ -155,45 +185,45 @@ int main(void)
 	// enable all gpio clocks
 	LLPD::gpio_enable_clock( GPIO_PORT::A );
 	LLPD::gpio_enable_clock( GPIO_PORT::B );
-	LLPD::gpio_enable_clock( GPIO_PORT::C );
-	LLPD::gpio_enable_clock( GPIO_PORT::F );
+	// LLPD::gpio_enable_clock( GPIO_PORT::C );
+	// LLPD::gpio_enable_clock( GPIO_PORT::F );
 
 	// USART setup
-	LLPD::usart_init( USART_NUM::USART_3, USART_WORD_LENGTH::BITS_8, USART_PARITY::EVEN, USART_CONF::TX_AND_RX,
-				USART_STOP_BITS::BITS_1, SYS_CLOCK_FREQUENCY, 9600 );
-	LLPD::usart_log( USART_NUM::USART_3, "Gen_FX_SYN starting up -----------------------------" );
+	// LLPD::usart_init( USART_NUM::USART_3, USART_WORD_LENGTH::BITS_8, USART_PARITY::EVEN, USART_CONF::TX_AND_RX,
+	// 			USART_STOP_BITS::BITS_1, SYS_CLOCK_FREQUENCY, 9600 );
+	// LLPD::usart_log( USART_NUM::USART_3, "Gen_FX_SYN starting up -----------------------------" );
 
 	// disable the unused pins
 	disableUnusedPins();
 
 	// i2c setup (72MHz source 1000KHz clock 0x00A00D26)
-	LLPD::i2c_master_setup( I2C_NUM::I2C_2, 0x00A00D26 );
-	LLPD::usart_log( USART_NUM::USART_3, "I2C initialized..." );
+	// LLPD::i2c_master_setup( I2C_NUM::I2C_2, 0x00A00D26 );
+	// LLPD::usart_log( USART_NUM::USART_3, "I2C initialized..." );
 
 	// spi init (36MHz SPI2 source 18MHz clock)
 	LLPD::spi_master_init( SPI_NUM::SPI_2, SPI_BAUD_RATE::APB1CLK_DIV_BY_2, SPI_CLK_POL::LOW_IDLE, SPI_CLK_PHASE::FIRST,
 				SPI_DUPLEX::FULL, SPI_FRAME_FORMAT::MSB_FIRST, SPI_DATA_SIZE::BITS_8 );
-	LLPD::usart_log( USART_NUM::USART_3, "spi initialized..." );
+	// LLPD::usart_log( USART_NUM::USART_3, "spi initialized..." );
 
 	// audio timer setup (for 40 kHz sampling rate at 72 MHz system clock)
 	LLPD::tim6_counter_setup( 0, 1800, 40000 );
 	LLPD::tim6_counter_enable_interrupts();
-	LLPD::usart_log( USART_NUM::USART_3, "tim6 initialized..." );
+	// LLPD::usart_log( USART_NUM::USART_3, "tim6 initialized..." );
 
 	// DAC setup
 	LLPD::dac_init( true );
-	LLPD::usart_log( USART_NUM::USART_3, "dac initialized..." );
+	// LLPD::usart_log( USART_NUM::USART_3, "dac initialized..." );
 
 	// Op Amp setup
-	LLPD::gpio_analog_setup( OP_AMP_PORT, OP_AMP_INVERT_PIN );
-	LLPD::gpio_analog_setup( OP_AMP_PORT, OP_AMP_OUTPUT_PIN );
-	LLPD::gpio_analog_setup( OP_AMP_PORT, OP_AMP_NON_INVERT_PIN );
-	LLPD::opamp_init();
-	LLPD::usart_log( USART_NUM::USART_3, "op amp initialized..." );
+	// LLPD::gpio_analog_setup( OP_AMP_PORT, OP_AMP_INVERT_PIN );
+	// LLPD::gpio_analog_setup( OP_AMP_PORT, OP_AMP_OUTPUT_PIN );
+	// LLPD::gpio_analog_setup( OP_AMP_PORT, OP_AMP_NON_INVERT_PIN );
+	// LLPD::opamp_init();
+	// LLPD::usart_log( USART_NUM::USART_3, "op amp initialized..." );
 
 	// audio timer start
 	LLPD::tim6_counter_start();
-	LLPD::usart_log( USART_NUM::USART_3, "tim6 started..." );
+	// LLPD::usart_log( USART_NUM::USART_3, "tim6 started..." );
 
 	// ADC setup (note, this must be done after the tim6_counter_start() call since it uses the delay function)
 	LLPD::rcc_pll_enable( RCC_CLOCK_SOURCE::INTERNAL, false, RCC_PLL_MULTIPLY::NONE );
@@ -203,33 +233,33 @@ int main(void)
 	LLPD::gpio_analog_setup( AUDIO_IN_PORT, AUDIO_IN_PIN );
 	LLPD::adc_init( ADC_CYCLES_PER_SAMPLE::CPS_19p5 );
 	LLPD::adc_set_channel_order( 4, EFFECT1_ADC_CHANNEL, EFFECT2_ADC_CHANNEL, EFFECT3_ADC_CHANNEL, AUDIO_IN_CHANNEL );
-	LLPD::usart_log( USART_NUM::USART_3, "adc initialized..." );
+	// LLPD::usart_log( USART_NUM::USART_3, "adc initialized..." );
 
 	// pushbutton setup
-	LLPD::gpio_digital_input_setup( EFFECT1_BUTTON_PORT, EFFECT1_BUTTON_PIN, GPIO_PUPD::PULL_UP );
-	LLPD::gpio_digital_input_setup( EFFECT2_BUTTON_PORT, EFFECT2_BUTTON_PIN, GPIO_PUPD::PULL_UP );
+	// LLPD::gpio_digital_input_setup( EFFECT1_BUTTON_PORT, EFFECT1_BUTTON_PIN, GPIO_PUPD::PULL_UP );
+	// LLPD::gpio_digital_input_setup( EFFECT2_BUTTON_PORT, EFFECT2_BUTTON_PIN, GPIO_PUPD::PULL_UP );
 
 	// EEPROM setup and test
-	std::vector<Eeprom_CAT24C64_AddressConfig> eepromAddressConfigs;
-	eepromAddressConfigs.emplace_back( EEPROM1_ADDRESS );
-	eepromAddressConfigs.emplace_back( EEPROM2_ADDRESS );
-	Eeprom_CAT24C64_Manager eeproms( I2C_NUM::I2C_2, eepromAddressConfigs );
-	// TODO comment the verification lines out if you're using the eeprom for persistent memory
-	SharedData<uint8_t> eepromValsToWrite = SharedData<uint8_t>::MakeSharedData( 3 );
-	eepromValsToWrite[0] = 64; eepromValsToWrite[1] = 23; eepromValsToWrite[2] = 17;
-	eeproms.writeToMedia( eepromValsToWrite, 45 );
-	eeproms.writeToMedia( eepromValsToWrite, 45 + Eeprom_CAT24C64::EEPROM_SIZE );
-	SharedData<uint8_t> eeprom1Verification = eeproms.readFromMedia( 3, 45 );
-	SharedData<uint8_t> eeprom2Verification = eeproms.readFromMedia( 3, 45 + Eeprom_CAT24C64::EEPROM_SIZE );
-	if ( eeprom1Verification[0] == 64 && eeprom1Verification[1] == 23 && eeprom1Verification[2] == 17 &&
-			eeprom2Verification[0] == 64 && eeprom2Verification[1] == 23 && eeprom2Verification[2] == 17 )
-	{
-		LLPD::usart_log( USART_NUM::USART_3, "eeproms verified..." );
-	}
-	else
-	{
-		LLPD::usart_log( USART_NUM::USART_3, "WARNING!!! eeproms failed verification..." );
-	}
+	// std::vector<Eeprom_CAT24C64_AddressConfig> eepromAddressConfigs;
+	// eepromAddressConfigs.emplace_back( EEPROM1_ADDRESS );
+	// eepromAddressConfigs.emplace_back( EEPROM2_ADDRESS );
+	// Eeprom_CAT24C64_Manager eeproms( I2C_NUM::I2C_2, eepromAddressConfigs );
+	// // TODO comment the verification lines out if you're using the eeprom for persistent memory
+	// SharedData<uint8_t> eepromValsToWrite = SharedData<uint8_t>::MakeSharedData( 3 );
+	// eepromValsToWrite[0] = 64; eepromValsToWrite[1] = 23; eepromValsToWrite[2] = 17;
+	// eeproms.writeToMedia( eepromValsToWrite, 45 );
+	// eeproms.writeToMedia( eepromValsToWrite, 45 + Eeprom_CAT24C64::EEPROM_SIZE );
+	// SharedData<uint8_t> eeprom1Verification = eeproms.readFromMedia( 3, 45 );
+	// SharedData<uint8_t> eeprom2Verification = eeproms.readFromMedia( 3, 45 + Eeprom_CAT24C64::EEPROM_SIZE );
+	// if ( eeprom1Verification[0] == 64 && eeprom1Verification[1] == 23 && eeprom1Verification[2] == 17 &&
+	// 		eeprom2Verification[0] == 64 && eeprom2Verification[1] == 23 && eeprom2Verification[2] == 17 )
+	// {
+	// 	LLPD::usart_log( USART_NUM::USART_3, "eeproms verified..." );
+	// }
+	// else
+	// {
+	// 	LLPD::usart_log( USART_NUM::USART_3, "WARNING!!! eeproms failed verification..." );
+	// }
 
 	// SRAM setup and test
 	std::vector<Sram_23K256_GPIO_Config> spiGpioConfigs;
@@ -253,11 +283,11 @@ int main(void)
 			sram3Verification[0] == 25 && sram3Verification[1] == 16 && sram3Verification[2] == 8 &&
 			sram4Verification[0] == 25 && sram4Verification[1] == 16 && sram4Verification[2] == 8 )
 	{
-		LLPD::usart_log( USART_NUM::USART_3, "srams verified..." );
+		// LLPD::usart_log( USART_NUM::USART_3, "srams verified..." );
 	}
 	else
 	{
-		LLPD::usart_log( USART_NUM::USART_3, "WARNING!!! srams failed verification..." );
+		// LLPD::usart_log( USART_NUM::USART_3, "WARNING!!! srams failed verification..." );
 	}
 	srams.setSequentialMode( true );
 
@@ -306,19 +336,22 @@ int main(void)
 	LLPD::usart_log( USART_NUM::USART_3, "oled initialized..." );
 	*/
 
-	LLPD::usart_log( USART_NUM::USART_3, "Gen_FX_SYN setup complete, entering while loop -------------------------------" );
+	// LLPD::usart_log( USART_NUM::USART_3, "Gen_FX_SYN setup complete, entering while loop -------------------------------" );
 
 	AudioBuffer<uint16_t> audioBuffer;
 	audioBufferPtr = &audioBuffer;
 
 	AkiDelayManager akiDelayManager( &srams );
-	AkiDelayUiManager akiDelayUiManager( Smoll_data, AkiDelayMainImage_data, AkiDelayHiddenImage_data );
+	uint8_t fakeFont[1];
+	uint8_t fakeImage1[1];
+	uint8_t fakeImage2[2];
+	AkiDelayUiManager akiDelayUiManager( fakeFont, fakeImage1, fakeImage2 );
 
-	Oled_Manager oled( akiDelayUiManager.getFrameBuffer()->getPixels() );
-	LLPD::usart_log( USART_NUM::USART_3, "oled initialized..." );
+	// Oled_Manager oled( akiDelayUiManager.getFrameBuffer()->getPixels() );
+	// LLPD::usart_log( USART_NUM::USART_3, "oled initialized..." );
 
 	// initial drawing of the UI
-	akiDelayUiManager.draw();
+	// akiDelayUiManager.draw();
 
 	audioBuffer.registerCallback( &akiDelayManager );
 
@@ -326,27 +359,27 @@ int main(void)
 
 	while ( true )
 	{
-		if ( ! LLPD::gpio_input_get(EFFECT1_BUTTON_PORT, EFFECT1_BUTTON_PIN) )
-		{
-			IButtonEventListener::PublishEvent(
-					ButtonEvent(BUTTON_STATE::PRESSED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_1)) );
-		}
-		else
-		{
-			IButtonEventListener::PublishEvent(
-					ButtonEvent(BUTTON_STATE::RELEASED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_1)) );
-		}
+		// if ( ! LLPD::gpio_input_get(EFFECT1_BUTTON_PORT, EFFECT1_BUTTON_PIN) )
+		// {
+		// 	IButtonEventListener::PublishEvent(
+		// 			ButtonEvent(BUTTON_STATE::PRESSED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_1)) );
+		// }
+		// else
+		// {
+		// 	IButtonEventListener::PublishEvent(
+		// 			ButtonEvent(BUTTON_STATE::RELEASED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_1)) );
+		// }
 
-		if ( ! LLPD::gpio_input_get(EFFECT2_BUTTON_PORT, EFFECT2_BUTTON_PIN) )
-		{
-			IButtonEventListener::PublishEvent(
-					ButtonEvent(BUTTON_STATE::PRESSED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_2)) );
-		}
-		else
-		{
-			IButtonEventListener::PublishEvent(
-					ButtonEvent(BUTTON_STATE::RELEASED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_2)) );
-		}
+		// if ( ! LLPD::gpio_input_get(EFFECT2_BUTTON_PORT, EFFECT2_BUTTON_PIN) )
+		// {
+		// 	IButtonEventListener::PublishEvent(
+		// 			ButtonEvent(BUTTON_STATE::PRESSED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_2)) );
+		// }
+		// else
+		// {
+		// 	IButtonEventListener::PublishEvent(
+		// 			ButtonEvent(BUTTON_STATE::RELEASED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_2)) );
+		// }
 
 		uint16_t pot1Val = LLPD::adc_get_channel_value( EFFECT1_ADC_CHANNEL );
 		float pot1Percentage = static_cast<float>( pot1Val ) * ( 1.0f / 4095.0f );
@@ -372,7 +405,8 @@ extern "C" void TIM6_DAC_IRQHandler (void)
 		{
 			uint16_t adcVal = LLPD::adc_get_channel_value( ADC_CHANNEL::CHAN_4 );
 
-			LLPD::dac_send( audioBufferPtr->getNextSample(adcVal) );
+			uint16_t nextVal = audioBufferPtr->getNextSample( adcVal );
+			LLPD::dac_send( nextVal );
 
 			LLPD::adc_perform_conversion_sequence();
 		}
