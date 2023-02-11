@@ -211,28 +211,6 @@ int main(void)
 	LLPD::gpio_digital_input_setup( EFFECT1_BUTTON_PORT, EFFECT1_BUTTON_PIN, GPIO_PUPD::PULL_UP );
 	LLPD::gpio_digital_input_setup( EFFECT2_BUTTON_PORT, EFFECT2_BUTTON_PIN, GPIO_PUPD::PULL_UP );
 
-	// EEPROM setup and test
-	std::vector<Eeprom_CAT24C64_AddressConfig> eepromAddressConfigs;
-	eepromAddressConfigs.emplace_back( EEPROM1_ADDRESS );
-	eepromAddressConfigs.emplace_back( EEPROM2_ADDRESS );
-	Eeprom_CAT24C64_Manager eeproms( I2C_NUM::I2C_2, eepromAddressConfigs );
-	// TODO comment the verification lines out if you're using the eeprom for persistent memory
-	SharedData<uint8_t> eepromValsToWrite = SharedData<uint8_t>::MakeSharedData( 3 );
-	eepromValsToWrite[0] = 64; eepromValsToWrite[1] = 23; eepromValsToWrite[2] = 17;
-	eeproms.writeToMedia( eepromValsToWrite, 45 );
-	eeproms.writeToMedia( eepromValsToWrite, 45 + Eeprom_CAT24C64::EEPROM_SIZE );
-	SharedData<uint8_t> eeprom1Verification = eeproms.readFromMedia( 3, 45 );
-	SharedData<uint8_t> eeprom2Verification = eeproms.readFromMedia( 3, 45 + Eeprom_CAT24C64::EEPROM_SIZE );
-	if ( eeprom1Verification[0] == 64 && eeprom1Verification[1] == 23 && eeprom1Verification[2] == 17 &&
-			eeprom2Verification[0] == 64 && eeprom2Verification[1] == 23 && eeprom2Verification[2] == 17 )
-	{
-		LLPD::usart_log( USART_NUM::USART_3, "eeproms verified..." );
-	}
-	else
-	{
-		LLPD::usart_log( USART_NUM::USART_3, "WARNING!!! eeproms failed verification..." );
-	}
-
 	// SRAM setup and test
 	std::vector<Sram_23K256_GPIO_Config> spiGpioConfigs;
 	spiGpioConfigs.emplace_back( SRAM1_CS_PORT, SRAM1_CS_PIN );
