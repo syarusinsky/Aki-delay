@@ -87,6 +87,8 @@ class Oled_Manager : public IAkiDelayLCDRefreshEventListener
 
 			m_Oled.begin();
 
+			m_Oled.setRefreshRatePrescaler( REFRESH_RATE_PRESCALE::BY_10 );
+
 			this->bindToAkiDelayLCDRefreshEventSystem();
 		}
 		~Oled_Manager() override
@@ -147,7 +149,7 @@ void disableUnusedPins()
 int main(void)
 {
 	// set system clock to PLL with HSE (16MHz / 2) as input, so 72MHz system clock speed
-	LLPD::rcc_clock_setup( RCC_CLOCK_SOURCE::EXTERNAL, true, RCC_PLL_MULTIPLY::BY_8, SYS_CLOCK_FREQUENCY );
+	LLPD::rcc_clock_setup( RCC_CLOCK_SOURCE::EXTERNAL, true, RCC_PLL_MULTIPLY::BY_9, SYS_CLOCK_FREQUENCY );
 
 	// prescale APB1 by 2, since the maximum clock speed is 36MHz
 	LLPD::rcc_set_periph_clock_prescalers( RCC_AHB_PRES::BY_1, RCC_APB1_PRES::AHB_BY_2, RCC_APB2_PRES::AHB_BY_1 );
@@ -261,50 +263,11 @@ int main(void)
 	}
 	srams.setSequentialMode( true );
 
-	// SD Card setup and test TODO this currently isn't working correctly so it's been commented out
-	/*
-	LLPD::gpio_output_setup( SDCARD_CS_PORT, SDCARD_CS_PIN, GPIO_PUPD::NONE, GPIO_OUTPUT_TYPE::PUSH_PULL, GPIO_OUTPUT_SPEED::HIGH, false );
-	LLPD::gpio_output_set( SDCARD_CS_PORT, SDCARD_CS_PIN, true );
-	SDCard sdCard( SPI_NUM::SPI_2, SDCARD_CS_PORT, SDCARD_CS_PIN, true );
-	sdCard.initialize();
-	LLPD::usart_log( USART_NUM::USART_3, "sd card initialized..." );
-	// TODO comment the verification lines out if you're using the sd card for persistent memory
-	SharedData<uint8_t> sdCardValsToWrite = SharedData<uint8_t>::MakeSharedData( 3 );
-	sdCardValsToWrite[0] = 23; sdCardValsToWrite[1] = 87; sdCardValsToWrite[2] = 132;
-	sdCard.writeToMedia( sdCardValsToWrite, 54 );
-	SharedData<uint8_t> retVals3 = sdCard.readFromMedia( 3, 54 );
-	if ( retVals3[0] == 23 && retVals3[1] == 87 && retVals3[2] == 132 )
+	// zero srams so you don't get horrendous noise on startup (still some popping but whatevs)
+	for ( unsigned int sample = 0; sample < Sram_23K256::SRAM_SIZE * 4; sample++ )
 	{
-		LLPD::usart_log( USART_NUM::USART_3, "sd card verified..." );
+		srams.writeByte( sample, 0 );
 	}
-	else
-	{
-		LLPD::usart_log( USART_NUM::USART_3, "WARNING!!! sd card failed verification..." );
-	}
-	*/
-
-	/* TODO this was test code, remove it after testing Oled_Manager
-	// display buffer
-	uint8_t displayBuffer[(SH1106_LCDWIDTH * SH1106_LCDHEIGHT) / 8] = { 0 };
-
-	// clear display buffer
-	for ( unsigned int byte = 0; byte < (SH1106_LCDHEIGHT * SH1106_LCDWIDTH) / 8; byte++ )
-	{
-		displayBuffer[byte] = 0xFF;
-	}
-
-	// OLED setup
-	LLPD::gpio_output_setup( OLED_CS_PORT, OLED_CS_PIN, GPIO_PUPD::NONE, GPIO_OUTPUT_TYPE::PUSH_PULL, GPIO_OUTPUT_SPEED::HIGH, false );
-	LLPD::gpio_output_set( OLED_CS_PORT, OLED_CS_PIN, true );
-	LLPD::gpio_output_setup( OLED_DC_PORT, OLED_DC_PIN, GPIO_PUPD::NONE, GPIO_OUTPUT_TYPE::PUSH_PULL, GPIO_OUTPUT_SPEED::HIGH, false );
-	LLPD::gpio_output_set( OLED_DC_PORT, OLED_DC_PIN, true );
-	LLPD::gpio_output_setup( OLED_RESET_PORT, OLED_RESET_PIN, GPIO_PUPD::NONE, GPIO_OUTPUT_TYPE::PUSH_PULL, GPIO_OUTPUT_SPEED::HIGH, false );
-	LLPD::gpio_output_set( OLED_RESET_PORT, OLED_RESET_PIN, true );
-	Oled_SH1106 oled( SPI_NUM::SPI_2, OLED_CS_PORT, OLED_CS_PIN, OLED_DC_PORT, OLED_DC_PIN, OLED_RESET_PORT, OLED_RESET_PIN );
-	oled.begin();
-	oled.displayFullRowMajor( displayBuffer );
-	LLPD::usart_log( USART_NUM::USART_3, "oled initialized..." );
-	*/
 
 	LLPD::usart_log( USART_NUM::USART_3, "Gen_FX_SYN setup complete, entering while loop -------------------------------" );
 
@@ -326,27 +289,27 @@ int main(void)
 
 	while ( true )
 	{
-		if ( ! LLPD::gpio_input_get(EFFECT1_BUTTON_PORT, EFFECT1_BUTTON_PIN) )
-		{
-			IButtonEventListener::PublishEvent(
-					ButtonEvent(BUTTON_STATE::PRESSED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_1)) );
-		}
-		else
-		{
-			IButtonEventListener::PublishEvent(
-					ButtonEvent(BUTTON_STATE::RELEASED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_1)) );
-		}
+		// if ( ! LLPD::gpio_input_get(EFFECT1_BUTTON_PORT, EFFECT1_BUTTON_PIN) )
+		// {
+		// 	IButtonEventListener::PublishEvent(
+		// 			ButtonEvent(BUTTON_STATE::PRESSED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_1)) );
+		// }
+		// else
+		// {
+		// 	IButtonEventListener::PublishEvent(
+		// 			ButtonEvent(BUTTON_STATE::RELEASED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_1)) );
+		// }
 
-		if ( ! LLPD::gpio_input_get(EFFECT2_BUTTON_PORT, EFFECT2_BUTTON_PIN) )
-		{
-			IButtonEventListener::PublishEvent(
-					ButtonEvent(BUTTON_STATE::PRESSED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_2)) );
-		}
-		else
-		{
-			IButtonEventListener::PublishEvent(
-					ButtonEvent(BUTTON_STATE::RELEASED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_2)) );
-		}
+		// if ( ! LLPD::gpio_input_get(EFFECT2_BUTTON_PORT, EFFECT2_BUTTON_PIN) )
+		// {
+		// 	IButtonEventListener::PublishEvent(
+		// 			ButtonEvent(BUTTON_STATE::PRESSED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_2)) );
+		// }
+		// else
+		// {
+		// 	IButtonEventListener::PublishEvent(
+		// 			ButtonEvent(BUTTON_STATE::RELEASED, static_cast<unsigned int>(BUTTON_CHANNEL::EFFECT_BTN_2)) );
+		// }
 
 		uint16_t pot1Val = LLPD::adc_get_channel_value( EFFECT1_ADC_CHANNEL );
 		float pot1Percentage = static_cast<float>( pot1Val ) * ( 1.0f / 4095.0f );

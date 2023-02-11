@@ -189,7 +189,7 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 
 		for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
 		{
-			float outSample = ( writeBuffer[sample] + (readDataPtr[sample] * feedback) ) * 0.5f;
+			float outSample = ( writeBuffer[sample] + (readDataPtr[sample] * feedback) ) * 0.4f;
 			float filteredSample = m_Filt.processSample( outSample );
 
 			writeDataPtr[sample] = static_cast<uint16_t>( filteredSample );
