@@ -291,6 +291,12 @@ int main(void)
 	}
 	srams.setSequentialMode( true );
 
+	// zero srams so you don't get horrendous noise on startup (still some popping but whatevs)
+	for ( unsigned int sample = 0; sample < Sram_23K256::SRAM_SIZE * 4; sample++ )
+	{
+		srams.writeByte( sample, 0 );
+	}
+
 	// SD Card setup and test TODO this currently isn't working correctly so it's been commented out
 	/*
 	LLPD::gpio_output_setup( SDCARD_CS_PORT, SDCARD_CS_PIN, GPIO_PUPD::NONE, GPIO_OUTPUT_TYPE::PUSH_PULL, GPIO_OUTPUT_SPEED::HIGH, false );
