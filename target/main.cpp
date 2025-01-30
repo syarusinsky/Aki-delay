@@ -179,11 +179,18 @@ int main(void)
 
 	// audio timer setup (for 40 kHz sampling rate at 72 MHz system clock)
 	LLPD::tim6_counter_setup( 0, 1800, 40000 );
+	LLPD::tim3_counter_setup( 0, 1800, 40000 );
 	LLPD::tim6_counter_enable_interrupts();
 	LLPD::usart_log( USART_NUM::USART_3, "tim6 initialized..." );
+	LLPD::usart_log( USART_NUM::USART_3, "tim3 initialized..." );
+
+	// set up audio buffer for use with adc and dac dma
+	AudioBuffer<uint16_t> audioBuffer;
+	audioBufferPtr = &audioBuffer;
 
 	// DAC setup
-	LLPD::dac_init( true );
+	// LLPD::dac_init( true ); // for interrupt based audio
+	LLPD::dac_init_use_dma( true, ABUFFER_SIZE * 2, (uint16_t*) audioBuffer.getBuffer1() );
 	LLPD::usart_log( USART_NUM::USART_3, "dac initialized..." );
 
 	// Op Amp setup
@@ -195,7 +202,10 @@ int main(void)
 
 	// audio timer start
 	LLPD::tim6_counter_start();
+	LLPD::tim3_counter_start();
+	LLPD::tim3_sync_to_tim6();
 	LLPD::usart_log( USART_NUM::USART_3, "tim6 started..." );
+	LLPD::usart_log( USART_NUM::USART_3, "tim3 started..." );
 
 	// ADC setup (note, this must be done after the tim6_counter_start() call since it uses the delay function)
 	LLPD::rcc_pll_enable( RCC_CLOCK_SOURCE::INTERNAL, false, RCC_PLL_MULTIPLY::NONE );
@@ -204,7 +214,11 @@ int main(void)
 	LLPD::gpio_analog_setup( EFFECT3_ADC_PORT, EFFECT3_ADC_PIN );
 	LLPD::gpio_analog_setup( AUDIO_IN_PORT, AUDIO_IN_PIN );
 	LLPD::adc_init( ADC_CYCLES_PER_SAMPLE::CPS_19p5 );
-	LLPD::adc_set_channel_order( 4, EFFECT1_ADC_CHANNEL, EFFECT2_ADC_CHANNEL, EFFECT3_ADC_CHANNEL, AUDIO_IN_CHANNEL );
+	// for interrupt based audio
+	// LLPD::adc_set_channel_order( false, 4, ADC_CHANNEL::CHAN_INVALID, nullptr, 0,
+	// 				EFFECT1_ADC_CHANNEL, EFFECT2_ADC_CHANNEL, EFFECT3_ADC_CHANNEL, AUDIO_IN_CHANNEL );
+	LLPD::adc_set_channel_order( true, 4, AUDIO_IN_CHANNEL, (uint32_t*) audioBuffer.getBuffer1(), ABUFFER_SIZE * 2,
+					EFFECT1_ADC_CHANNEL, EFFECT2_ADC_CHANNEL, EFFECT3_ADC_CHANNEL, AUDIO_IN_CHANNEL );
 	LLPD::usart_log( USART_NUM::USART_3, "adc initialized..." );
 
 	// pushbutton setup
@@ -249,9 +263,6 @@ int main(void)
 
 	LLPD::usart_log( USART_NUM::USART_3, "Gen_FX_SYN setup complete, entering while loop -------------------------------" );
 
-	AudioBuffer<uint16_t> audioBuffer;
-	audioBufferPtr = &audioBuffer;
-
 	AkiDelayManager akiDelayManager( &srams );
 	AkiDelayUiManager akiDelayUiManager( Smoll_data, AkiDelayMainImage_data, AkiDelayHiddenImage_data );
 
@@ -264,6 +275,10 @@ int main(void)
 	audioBuffer.registerCallback( &akiDelayManager );
 
 	akiDelayReady = true;
+
+	LLPD::tim6_counter_disable_interrupts();
+	LLPD::dac_dma_start();
+	LLPD::adc_dma_start();
 
 	while ( true )
 	{
@@ -301,7 +316,21 @@ int main(void)
 		float pot3Percentage = static_cast<float>( pot3Val ) * ( 1.0f / 4095.0f );
 		IPotEventListener::PublishEvent( PotEvent(pot3Percentage, static_cast<unsigned int>(POT_CHANNEL::FILT_FREQ)) );
 
-		audioBuffer.pollToFillBuffers();
+		const unsigned int numDacTransfersLeft = LLPD::dac_dma_get_num_transfers_left();
+		bool buffer1Filled = ! audioBuffer.buffer1IsNextToWrite();
+
+		if ( buffer1Filled && numDacTransfersLeft < ABUFFER_SIZE )
+		{
+			// fill buffer 2
+			audioBuffer.triggerCallbacksOnNextPoll( false );
+			audioBuffer.pollToFillBuffers();
+		}
+		else if ( ! buffer1Filled && numDacTransfersLeft >= ABUFFER_SIZE )
+		{
+			// fill buffer 1
+			audioBuffer.triggerCallbacksOnNextPoll( true );
+			audioBuffer.pollToFillBuffers();
+		}
 	}
 }
 
@@ -309,14 +338,15 @@ extern "C" void TIM6_DAC_IRQHandler (void)
 {
 	if ( ! LLPD::tim6_isr_handle_delay() ) // if not currently in a delay function,...
 	{
-		if ( akiDelayReady )
-		{
-			uint16_t adcVal = LLPD::adc_get_channel_value( ADC_CHANNEL::CHAN_4 );
+		// code for interrupt based audio
+		// if ( akiDelayReady )
+		// {
+		// 	uint16_t adcVal = LLPD::adc_get_channel_value( ADC_CHANNEL::CHAN_4 );
 
-			LLPD::dac_send( audioBufferPtr->getNextSample(adcVal) );
+		// 	LLPD::dac_send( audioBufferPtr->getNextSample(adcVal) );
 
-			LLPD::adc_perform_conversion_sequence();
-		}
+		// 	LLPD::adc_perform_conversion_sequence();
+		// }
 	}
 
 	LLPD::tim6_counter_clear_interrupt_flag();
