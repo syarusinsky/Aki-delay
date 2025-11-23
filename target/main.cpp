@@ -28,10 +28,10 @@ volatile bool akiDelayReady = false; // should be set to true after everything h
 AudioBuffer<uint16_t>* audioBufferPtr = nullptr;
 
 // peripheral defines
-#define OP_AMP_PORT 		GPIO_PORT::A
-#define OP_AMP_INVERT_PIN 	GPIO_PIN::PIN_5
-#define OP_AMP_OUTPUT_PIN 	GPIO_PIN::PIN_6
-#define OP_AMP_NON_INVERT_PIN 	GPIO_PIN::PIN_7
+// #define OP_AMP_PORT 		GPIO_PORT::A
+// #define OP_AMP_INVERT_PIN 	GPIO_PIN::PIN_5
+// #define OP_AMP_OUTPUT_PIN 	GPIO_PIN::PIN_6
+// #define OP_AMP_NON_INVERT_PIN 	GPIO_PIN::PIN_7
 #define EFFECT1_ADC_PORT 	GPIO_PORT::A
 #define EFFECT1_ADC_PIN 	GPIO_PIN::PIN_0
 #define EFFECT1_ADC_CHANNEL 	ADC_CHANNEL::CHAN_1
@@ -41,8 +41,8 @@ AudioBuffer<uint16_t>* audioBufferPtr = nullptr;
 #define EFFECT3_ADC_PORT 	GPIO_PORT::A
 #define EFFECT3_ADC_PIN 	GPIO_PIN::PIN_2
 #define EFFECT3_ADC_CHANNEL 	ADC_CHANNEL::CHAN_3
-#define AUDIO_IN_PORT 		GPIO_PORT::A
-#define AUDIO_IN_PIN  		GPIO_PIN::PIN_3
+// #define AUDIO_IN_PORT 		GPIO_PORT::A
+// #define AUDIO_IN_PIN  		GPIO_PIN::PIN_3
 #define AUDIO_IN_CHANNEL 	ADC_CHANNEL::CHAN_4
 #define EFFECT1_BUTTON_PORT 	GPIO_PORT::B
 #define EFFECT1_BUTTON_PIN 	GPIO_PIN::PIN_0
@@ -66,6 +66,8 @@ AudioBuffer<uint16_t>* audioBufferPtr = nullptr;
 #define OLED_DC_PIN 		GPIO_PIN::PIN_8
 #define OLED_CS_PORT 		GPIO_PORT::B
 #define OLED_CS_PIN 		GPIO_PIN::PIN_9
+#define SPI_DAC_ADC_CS_PORT 	GPIO_PORT::A
+#define SPI_DAC_ADC_CS_PIN 	GPIO_PIN::PIN_12
 
 // a simple class to handle lcd refresh events
 class Oled_Manager : public IAkiDelayLCDRefreshEventListener
@@ -129,8 +131,6 @@ void disableUnusedPins()
 
 	LLPD::gpio_output_setup( GPIO_PORT::A, GPIO_PIN::PIN_8, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
 					GPIO_OUTPUT_SPEED::LOW );
-	LLPD::gpio_output_setup( GPIO_PORT::A, GPIO_PIN::PIN_12, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
-					GPIO_OUTPUT_SPEED::LOW );
 	LLPD::gpio_output_setup( GPIO_PORT::A, GPIO_PIN::PIN_15, GPIO_PUPD::PULL_DOWN, GPIO_OUTPUT_TYPE::PUSH_PULL,
 					GPIO_OUTPUT_SPEED::LOW );
 
@@ -160,6 +160,11 @@ int main(void)
 	LLPD::gpio_enable_clock( GPIO_PORT::C );
 	LLPD::gpio_enable_clock( GPIO_PORT::F );
 
+	// pull spi dac/adc external board cs pin high
+	LLPD::gpio_output_setup( SPI_DAC_ADC_CS_PORT, SPI_DAC_ADC_CS_PIN, GPIO_PUPD::PULL_UP, GPIO_OUTPUT_TYPE::PUSH_PULL,
+					GPIO_OUTPUT_SPEED::LOW );
+	LLPD::gpio_output_set( SPI_DAC_ADC_CS_PORT, SPI_DAC_ADC_CS_PIN, true );
+
 	// USART setup
 	LLPD::usart_init( USART_NUM::USART_3, USART_WORD_LENGTH::BITS_8, USART_PARITY::EVEN, USART_CONF::TX_AND_RX,
 				USART_STOP_BITS::BITS_1, SYS_CLOCK_FREQUENCY, 9600 );
@@ -173,6 +178,8 @@ int main(void)
 	LLPD::usart_log( USART_NUM::USART_3, "I2C initialized..." );
 
 	// spi init (36MHz SPI2 source 18MHz clock)
+	LLPD::spi_master_init( SPI_NUM::SPI_1, SPI_BAUD_RATE::APB1CLK_DIV_BY_32, SPI_CLK_POL::LOW_IDLE, SPI_CLK_PHASE::FIRST,
+				SPI_DUPLEX::FULL, SPI_FRAME_FORMAT::MSB_FIRST, SPI_DATA_SIZE::BITS_16 ); // spi dac/adc
 	LLPD::spi_master_init( SPI_NUM::SPI_2, SPI_BAUD_RATE::APB1CLK_DIV_BY_2, SPI_CLK_POL::LOW_IDLE, SPI_CLK_PHASE::FIRST,
 				SPI_DUPLEX::FULL, SPI_FRAME_FORMAT::MSB_FIRST, SPI_DATA_SIZE::BITS_8 );
 	LLPD::usart_log( USART_NUM::USART_3, "spi initialized..." );
@@ -188,17 +195,19 @@ int main(void)
 	AudioBuffer<uint16_t> audioBuffer;
 	audioBufferPtr = &audioBuffer;
 
+	// No longer using dac since using spi adc/dac external board
 	// DAC setup
 	// LLPD::dac_init( true ); // for interrupt based audio
-	LLPD::dac_init_use_dma( true, ABUFFER_SIZE * 2, (uint16_t*) audioBuffer.getBuffer1() );
-	LLPD::usart_log( USART_NUM::USART_3, "dac initialized..." );
+	// LLPD::dac_init_use_dma( true, ABUFFER_SIZE * 2, (uint16_t*) audioBuffer.getBuffer1() );
+	// LLPD::usart_log( USART_NUM::USART_3, "dac initialized..." );
 
+	// No longer using op amp since using spi adc/dac external board
 	// Op Amp setup
-	LLPD::gpio_analog_setup( OP_AMP_PORT, OP_AMP_INVERT_PIN );
-	LLPD::gpio_analog_setup( OP_AMP_PORT, OP_AMP_OUTPUT_PIN );
-	LLPD::gpio_analog_setup( OP_AMP_PORT, OP_AMP_NON_INVERT_PIN );
-	LLPD::opamp_init();
-	LLPD::usart_log( USART_NUM::USART_3, "op amp initialized..." );
+	// LLPD::gpio_analog_setup( OP_AMP_PORT, OP_AMP_INVERT_PIN );
+	// LLPD::gpio_analog_setup( OP_AMP_PORT, OP_AMP_OUTPUT_PIN );
+	// LLPD::gpio_analog_setup( OP_AMP_PORT, OP_AMP_NON_INVERT_PIN );
+	// LLPD::opamp_init();
+	// LLPD::usart_log( USART_NUM::USART_3, "op amp initialized..." );
 
 	// audio timer start
 	LLPD::tim6_counter_start();
@@ -212,7 +221,8 @@ int main(void)
 	LLPD::gpio_analog_setup( EFFECT1_ADC_PORT, EFFECT1_ADC_PIN );
 	LLPD::gpio_analog_setup( EFFECT2_ADC_PORT, EFFECT2_ADC_PIN );
 	LLPD::gpio_analog_setup( EFFECT3_ADC_PORT, EFFECT3_ADC_PIN );
-	LLPD::gpio_analog_setup( AUDIO_IN_PORT, AUDIO_IN_PIN );
+	// no longer using this since using spi dac/adc external board
+	// LLPD::gpio_analog_setup( AUDIO_IN_PORT, AUDIO_IN_PIN );
 	LLPD::adc_init( ADC_CYCLES_PER_SAMPLE::CPS_19p5 );
 	// for interrupt based audio
 	// LLPD::adc_set_channel_order( false, 4, ADC_CHANNEL::CHAN_INVALID, nullptr, 0,
@@ -277,8 +287,14 @@ int main(void)
 	akiDelayReady = true;
 
 	LLPD::tim6_counter_disable_interrupts();
-	LLPD::dac_dma_start();
-	LLPD::adc_dma_start();
+	// No longer using dac since using spi adc/dac external board
+	// LLPD::dac_dma_start();
+	// LLPD::adc_dma_start();
+	// pull spi dac/adc external board cs pin low
+	LLPD::gpio_output_setup( SPI_DAC_ADC_CS_PORT, SPI_DAC_ADC_CS_PIN, GPIO_PUPD::PULL_UP, GPIO_OUTPUT_TYPE::PUSH_PULL,
+					GPIO_OUTPUT_SPEED::LOW );
+	LLPD::gpio_output_set( SPI_DAC_ADC_CS_PORT, SPI_DAC_ADC_CS_PIN, false );
+	LLPD::spi1_dma_master_start( const_cast<uint16_t*>( audioBuffer.getBuffer1() ), ABUFFER_SIZE * 2 );
 
 	while ( true )
 	{
@@ -316,7 +332,12 @@ int main(void)
 		float pot3Percentage = static_cast<float>( pot3Val ) * ( 1.0f / 4095.0f );
 		IPotEventListener::PublishEvent( PotEvent(pot3Percentage, static_cast<unsigned int>(POT_CHANNEL::FILT_FREQ)) );
 
-		const unsigned int numDacTransfersLeft = LLPD::dac_dma_get_num_transfers_left();
+		// hardware dac version
+		// const unsigned int numDacTransfersLeft = LLPD::dac_dma_get_num_transfers_left();
+		// bool buffer1Filled = ! audioBuffer.buffer1IsNextToWrite();
+
+		// spi dac version
+		const unsigned int numDacTransfersLeft = LLPD::spi1_tx_dma_get_num_transfers_left();
 		bool buffer1Filled = ! audioBuffer.buffer1IsNextToWrite();
 
 		if ( buffer1Filled && numDacTransfersLeft < ABUFFER_SIZE )

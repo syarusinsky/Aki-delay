@@ -57,7 +57,11 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 	int16_t* writeBufferInt16 = reinterpret_cast<int16_t*>( writeBuffer );
 	for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
 	{
-		writeBuffer[sample] -= 2048;
+		// for hardware dac
+		// writeBuffer[sample] -= 2048;
+
+		// for spi dac
+		writeBuffer[sample] -= 32767;
 	}
 
 	m_NoiseGate.call( writeBufferInt16 );
@@ -65,7 +69,11 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 	// offset back
 	for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
 	{
-		writeBuffer[sample] += 2048;
+		// for hardware dac
+		// writeBuffer[sample] += 2048;
+
+		// for spi dac
+		writeBuffer[sample] += 32767;
 	}
 
 	// set correct read index, feedback amount, and filter frequency for this block
