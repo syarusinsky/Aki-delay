@@ -15,6 +15,7 @@
 #include "AkiDelayManager.hpp"
 #include "AkiDelayUiManager.hpp"
 #include "IAkiDelayLCDRefreshEventListener.hpp"
+#include "SampleRateConverter.hpp"
 
 #include <iostream>
 #include <fstream>
@@ -59,6 +60,8 @@ class MainComponent   : public juce::AudioAppComponent, public juce::Slider::Lis
 
 		AkiDelayManager akiDelayManager;
 		AkiDelayUiManager akiDelayUiManager;
+
+		SampleRateConverter<float, uint16_t> sampleRateConverter;
 
 		juce::AudioFormatWriter* writer;
 

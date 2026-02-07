@@ -1,9 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<JUCERPROJECT id="DcIhSg" name="Aki-delay" projectType="guiapp" jucerVersion="5.4.7"
-              cppLanguageStandard="11">
+<JUCERPROJECT id="DcIhSg" name="Aki-delay" projectType="guiapp" jucerFormatVersion="1"
+              cppLanguageStandard="17">
   <MAINGROUP id="Nwhz3w" name="Aki-delay">
     <GROUP id="{98D80E54-6CF9-BEAB-7DA1-8D820991FECF}" name="Source">
+      <FILE id="imhRrM" name="SampleRateConverter.cpp" compile="1" resource="0"
+            file="../lib/SAL/src/SampleRateConverter.cpp"/>
+      <FILE id="t0uHzv" name="SampleRateConverter.hpp" compile="0" resource="0"
+            file="../lib/SAL/include/SampleRateConverter.hpp"/>
+      <FILE id="WchlXC" name="IAllocator.cpp" compile="1" resource="0" file="../lib/DevLib/src/IAllocator.cpp"/>
+      <FILE id="Zq2eL3" name="IAllocator.hpp" compile="0" resource="0" file="../lib/DevLib/include/IAllocator.hpp"/>
       <FILE id="qbrrWM" name="AudioBuffer.cpp" compile="1" resource="0" file="../lib/SAL/src/AudioBuffer.cpp"/>
       <FILE id="qbrrWM" name="PresetManager.cpp" compile="1" resource="0"
             file="../lib/SAL/src/PresetManager.cpp"/>

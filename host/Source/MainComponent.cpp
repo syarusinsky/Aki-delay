@@ -35,6 +35,7 @@ MainComponent::MainComponent() :
 	fakeStorageDevice( Sram_23K256::SRAM_SIZE * 4 ), // sram size on Gen_FX_SYN boards, with four srams installed
 	akiDelayManager( &fakeStorageDevice ),
 	akiDelayUiManager( Smoll_data, AkiDelayMainImage_data, AkiDelayHiddenImage_data ),
+	sampleRateConverter( 96000, SAMPLE_RATE, 512, ABUFFER_SIZE ), 
 	writer(),
 	delayTimeSldr(),
 	delayTimeLbl(),
@@ -121,6 +122,9 @@ MainComponent::MainComponent() :
 	this->bindToAkiDelayLCDRefreshEventSystem();
 
 	akiDelayUiManager.draw();
+
+	std::cout << "Initialized! targetRate=" << std::to_string(sampleRateConverter.getTargetRate())
+		<< ", targetBufferSize=" << std::to_string(sampleRateConverter.getTargetBufferSize()) << std::endl;
 }
 
 MainComponent::~MainComponent()
@@ -145,30 +149,63 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
 	// but be careful - it will be called on the audio thread, not the GUI thread.
 
 	// For more details, see the help for AudioProcessor::prepareToPlay()
+	sampleRateConverter.setSourceRate( static_cast<unsigned int>(sampleRate) );
+	sampleRateConverter.setSourceBufferSize( samplesPerBlockExpected );
+	std::cout << "prepareToPlay called! rate=" << std::to_string(sampleRateConverter.getSourceRate())
+		<< ", bufferSize=" << std::to_string(sampleRateConverter.getSourceBufferSize())	<< std::endl;
 }
 
 void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill)
 {
-	// Your audio-processing code goes here!
-
 	// For more details, see the help for AudioProcessor::getNextAudioBlock()
 	try
 	{
+		sampleRateConverter.resetAllIncrs();
+
 		const float* inBufferL = bufferToFill.buffer->getReadPointer( 0, bufferToFill.startSample );
 		const float* inBufferR = bufferToFill.buffer->getReadPointer( 1, bufferToFill.startSample );
 		float* outBufferL = bufferToFill.buffer->getWritePointer( 0, bufferToFill.startSample );
 		float* outBufferR = bufferToFill.buffer->getWritePointer( 1, bufferToFill.startSample );
 
-		static uint16_t maxOut = 0;
-		static uint16_t minOut = 0;
-		if ( resetMaxAndMins ) { maxOut = 0; minOut = 0; resetMaxAndMins = false; }
+		uint16_t targetBuffer[ABUFFER_SIZE];
+		bool sourceBufferIsFullyConverted = false;
+		while ( ! sourceBufferIsFullyConverted )
+		{
+			sourceBufferIsFullyConverted =
+				sampleRateConverter.convertFromSourceToTarget( inBufferL, targetBuffer );
+
+			if ( sampleRateConverter.getSourceToTargetTargetIncr() >= ABUFFER_SIZE || sourceBufferIsFullyConverted )
+			{
+				// we've filled a target buffer
+				for ( unsigned int sample = 0;
+						sample < static_cast<unsigned int>( sampleRateConverter.getSourceToTargetTargetIncr() );
+						sample++ )
+				{
+					targetBuffer[sample] = sAudioBuffer.getNextSample( targetBuffer[sample] );
+				}
+
+				sAudioBuffer.pollToFillBuffers();
+
+				// now we need to convert back
+				sampleRateConverter.convertFromTargetToSource( targetBuffer, outBufferL );
+				for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
+				{
+					outBufferR[sample] = outBufferL[sample];
+				}
+			}
+		}
+
+		/*
+		// static uint16_t maxOut = 0;
+		// static uint16_t minOut = 0;
+		// if ( resetMaxAndMins ) { maxOut = 0; minOut = 0; resetMaxAndMins = false; }
 		for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; ++sample )
 		{
-			uint16_t sampleToReadBuffer = ( (inBufferL[sample] + 1.0f) * 0.5f ) * 4096.0f;
+			uint16_t sampleToReadBuffer = ( (inBufferL[sample] + 1.0f) * 0.5f ) * 65535.0f;
 			uint16_t sampleOut = sAudioBuffer.getNextSample( sampleToReadBuffer );
-			float sampleOutFloat = static_cast<float>( ((sampleOut / 4096.0f) * 2.0f) - 1.0f );
-			if ( sampleOut > maxOut ) maxOut = sampleOut;
-			if ( sampleOut < minOut ) minOut = sampleOut;
+			float sampleOutFloat = static_cast<float>( ((sampleOut / 65535.0f) * 2.0f) - 1.0f );
+			// if ( sampleOut > maxOut ) maxOut = sampleOut;
+			// if ( sampleOut < minOut ) minOut = sampleOut;
 			outBufferL[sample] = sampleOutFloat;
 			outBufferR[sample] = sampleOutFloat;
 		}
@@ -176,6 +213,7 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
 		// std::cout << "minOut: " << std::to_string(minOut) << std::endl;
 
 		sAudioBuffer.pollToFillBuffers();
+		*/
 	}
 	catch ( std::exception& e )
 	{
