@@ -35,7 +35,7 @@ MainComponent::MainComponent() :
 	fakeStorageDevice( Sram_23K256::SRAM_SIZE * 4 ), // sram size on Gen_FX_SYN boards, with four srams installed
 	akiDelayManager( &fakeStorageDevice ),
 	akiDelayUiManager( Smoll_data, AkiDelayMainImage_data, AkiDelayHiddenImage_data ),
-	sampleRateConverter( 96000, SAMPLE_RATE, 512, ABUFFER_SIZE ), 
+	sampleRateConverter( 96000, SAMPLE_RATE, 512, ABUFFER_SIZE ),
 	writer(),
 	delayTimeSldr(),
 	delayTimeLbl(),
@@ -151,6 +151,7 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
 	// For more details, see the help for AudioProcessor::prepareToPlay()
 	sampleRateConverter.setSourceRate( static_cast<unsigned int>(sampleRate) );
 	sampleRateConverter.setSourceBufferSize( samplesPerBlockExpected );
+	sampleRateConverter.resetAAFilters();
 	std::cout << "prepareToPlay called! rate=" << std::to_string(sampleRateConverter.getSourceRate())
 		<< ", bufferSize=" << std::to_string(sampleRateConverter.getSourceBufferSize())	<< std::endl;
 }
@@ -167,53 +168,88 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
 		float* outBufferL = bufferToFill.buffer->getWritePointer( 0, bufferToFill.startSample );
 		float* outBufferR = bufferToFill.buffer->getWritePointer( 1, bufferToFill.startSample );
 
-		uint16_t targetBuffer[ABUFFER_SIZE];
+		// TODO remove this test stuff after testing
+		// static AntiAliasingFilter<float> testAAFilter( 1000, 96000, 63, 512 );
+		// for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
+		// {
+		// 	outBufferL[sample] = inBufferL[sample];
+		// }
+		// testAAFilter.call( outBufferL );
+		// for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
+		// {
+		// 	outBufferR[sample] = outBufferL[sample];
+		// }
+
+		// if downsampling, anti-alias filter the source
+		if ( ! sampleRateConverter.sourceToTargetIsUpsampling() )
+		{
+			float* inBufferLNonConst = const_cast<float*>( inBufferL );
+			sampleRateConverter.filterSourceToTargetDownsampling( inBufferLNonConst );
+		}
+
+		uint16_t targetBuffer[ sampleRateConverter.getTargetBufferSize() ];
 		bool sourceBufferIsFullyConverted = false;
 		while ( ! sourceBufferIsFullyConverted )
 		{
+			// TODO remove after testing
+			// for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
+			// {
+			// 	float* inBufferLNonConst = const_cast<float*>( inBufferL );
+			// 	inBufferLNonConst[sample] = 1.0f;
+			// }
+
 			sourceBufferIsFullyConverted =
 				sampleRateConverter.convertFromSourceToTarget( inBufferL, targetBuffer );
 
-			if ( sampleRateConverter.getSourceToTargetTargetIncr() >= ABUFFER_SIZE || sourceBufferIsFullyConverted )
+			if ( sampleRateConverter.getSourceToTargetTargetIncr() >= sampleRateConverter.getTargetBufferSize()
+					|| sourceBufferIsFullyConverted )
 			{
-				// we've filled a target buffer
+				// we've filled a target buffer, so
+				// if upsampling, anti-alias filter the target
+				if ( sampleRateConverter.sourceToTargetIsUpsampling() )
+				{
+					sampleRateConverter.filterSourceToTargetUpsampling( targetBuffer );
+				}
+
+				// TODO removing this part works just fine, but having it here creates an audible tone
+				// this could just be that the processing time is too much? Even without the filtering,
+				// this is still happening.
+				// then pass this audio into the target
 				for ( unsigned int sample = 0;
-						sample < static_cast<unsigned int>( sampleRateConverter.getSourceToTargetTargetIncr() );
+						sample < sampleRateConverter.getTargetBufferSize();
 						sample++ )
 				{
 					targetBuffer[sample] = sAudioBuffer.getNextSample( targetBuffer[sample] );
 				}
-
 				sAudioBuffer.pollToFillBuffers();
+
+				// if downsampling, anti-alias filter the target
+				if ( ! sampleRateConverter.targetToSourceIsUpsampling() )
+				{
+					sampleRateConverter.filterTargetToSourceDownsampling( targetBuffer );
+				}
+
+				// TODO remove after testing
+				// for ( unsigned int sample = 0; sample < sampleRateConverter.getTargetBufferSize(); sample++ )
+				// {
+				// 	targetBuffer[sample] = 0;
+				// }
 
 				// now we need to convert back
 				sampleRateConverter.convertFromTargetToSource( targetBuffer, outBufferL );
-				for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
-				{
-					outBufferR[sample] = outBufferL[sample];
-				}
 			}
 		}
 
-		/*
-		// static uint16_t maxOut = 0;
-		// static uint16_t minOut = 0;
-		// if ( resetMaxAndMins ) { maxOut = 0; minOut = 0; resetMaxAndMins = false; }
-		for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; ++sample )
+		// if upsampling, anti-alias filter the source
+		if ( sampleRateConverter.targetToSourceIsUpsampling() )
 		{
-			uint16_t sampleToReadBuffer = ( (inBufferL[sample] + 1.0f) * 0.5f ) * 65535.0f;
-			uint16_t sampleOut = sAudioBuffer.getNextSample( sampleToReadBuffer );
-			float sampleOutFloat = static_cast<float>( ((sampleOut / 65535.0f) * 2.0f) - 1.0f );
-			// if ( sampleOut > maxOut ) maxOut = sampleOut;
-			// if ( sampleOut < minOut ) minOut = sampleOut;
-			outBufferL[sample] = sampleOutFloat;
-			outBufferR[sample] = sampleOutFloat;
+			sampleRateConverter.filterTargetToSourceUpsampling( outBufferL );
 		}
-		// std::cout << "maxOut: " << std::to_string(maxOut) << std::endl;
-		// std::cout << "minOut: " << std::to_string(minOut) << std::endl;
 
-		sAudioBuffer.pollToFillBuffers();
-		*/
+		for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
+		{
+			outBufferR[sample] = outBufferL[sample];
+		}
 	}
 	catch ( std::exception& e )
 	{

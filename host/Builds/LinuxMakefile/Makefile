@@ -72,6 +72,7 @@ ifeq ($(CONFIG),Release)
 endif
 
 OBJECTS_APP := \
+  $(JUCE_OBJDIR)/AntiAliasingFilter_25fd65d6.o \
   $(JUCE_OBJDIR)/SampleRateConverter_bab721f6.o \
   $(JUCE_OBJDIR)/IAllocator_5df50da8.o \
   $(JUCE_OBJDIR)/AudioBuffer_ebf7f996.o \
@@ -124,6 +125,11 @@ $(JUCE_OUTDIR)/$(JUCE_TARGET_APP) : $(OBJECTS_APP) $(JUCE_OBJDIR)/execinfo.cmd $
 	-$(V_AT)mkdir -p $(JUCE_LIBDIR)
 	-$(V_AT)mkdir -p $(JUCE_OUTDIR)
 	$(V_AT)$(CXX) -o $(JUCE_OUTDIR)/$(JUCE_TARGET_APP) $(OBJECTS_APP) $(JUCE_LDFLAGS) $(shell cat $(JUCE_OBJDIR)/execinfo.cmd) $(JUCE_LDFLAGS_APP) $(RESOURCES) $(TARGET_ARCH)
+
+$(JUCE_OBJDIR)/AntiAliasingFilter_25fd65d6.o: ../../../lib/SAL/src/AntiAliasingFilter.cpp
+	-$(V_AT)mkdir -p $(@D)
+	@echo "Compiling AntiAliasingFilter.cpp"
+	$(V_AT)$(CXX) $(JUCE_CXXFLAGS) $(JUCE_CPPFLAGS_APP) $(JUCE_CFLAGS_APP) -o "$@" -c "$<"
 
 $(JUCE_OBJDIR)/SampleRateConverter_bab721f6.o: ../../../lib/SAL/src/SampleRateConverter.cpp
 	-$(V_AT)mkdir -p $(@D)
