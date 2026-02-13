@@ -35,7 +35,7 @@ MainComponent::MainComponent() :
 	fakeStorageDevice( Sram_23K256::SRAM_SIZE * 4 ), // sram size on Gen_FX_SYN boards, with four srams installed
 	akiDelayManager( &fakeStorageDevice ),
 	akiDelayUiManager( Smoll_data, AkiDelayMainImage_data, AkiDelayHiddenImage_data ),
-	sampleRateConverter( 96000, SAMPLE_RATE, 512, ABUFFER_SIZE ),
+	sampleRateConverter( 96000, SAMPLE_RATE, 512 ),
 	writer(),
 	delayTimeSldr(),
 	delayTimeLbl(),
@@ -151,6 +151,7 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
 	// For more details, see the help for AudioProcessor::prepareToPlay()
 	sampleRateConverter.setSourceRate( static_cast<unsigned int>(sampleRate) );
 	sampleRateConverter.setSourceBufferSize( samplesPerBlockExpected );
+	sampleRateConverter.resetAllIncrs();
 	sampleRateConverter.resetAAFilters();
 	std::cout << "prepareToPlay called! rate=" << std::to_string(sampleRateConverter.getSourceRate())
 		<< ", bufferSize=" << std::to_string(sampleRateConverter.getSourceBufferSize())	<< std::endl;
@@ -161,43 +162,32 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
 	// For more details, see the help for AudioProcessor::getNextAudioBlock()
 	try
 	{
-		sampleRateConverter.resetAllIncrs();
-
 		const float* inBufferL = bufferToFill.buffer->getReadPointer( 0, bufferToFill.startSample );
 		const float* inBufferR = bufferToFill.buffer->getReadPointer( 1, bufferToFill.startSample );
 		float* outBufferL = bufferToFill.buffer->getWritePointer( 0, bufferToFill.startSample );
 		float* outBufferR = bufferToFill.buffer->getWritePointer( 1, bufferToFill.startSample );
 
-		// TODO remove this test stuff after testing
-		// static AntiAliasingFilter<float> testAAFilter( 1000, 96000, 63, 512 );
-		// for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
-		// {
-		// 	outBufferL[sample] = inBufferL[sample];
-		// }
-		// testAAFilter.call( outBufferL );
-		// for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
-		// {
-		// 	outBufferR[sample] = outBufferL[sample];
-		// }
-
-		// if downsampling, anti-alias filter the source
-		if ( ! sampleRateConverter.sourceToTargetIsUpsampling() )
+		// TODO remove after testing
+		float* inBufferLNonConst = const_cast<float*>( inBufferL );
+		for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
 		{
-			float* inBufferLNonConst = const_cast<float*>( inBufferL );
-			sampleRateConverter.filterSourceToTargetDownsampling( inBufferLNonConst );
+			inBufferLNonConst[sample] = ( static_cast<float>(sample) / 32767.0f ) - 1.0f;
 		}
 
-		uint16_t targetBuffer[ sampleRateConverter.getTargetBufferSize() ];
+		// if downsampling, anti-alias filter the source
+		// if ( ! sampleRateConverter.sourceToTargetIsUpsampling() )
+		// {
+		// 	float* inBufferLNonConst = const_cast<float*>( inBufferL );
+		// 	sampleRateConverter.filterSourceToTargetDownsampling( inBufferLNonConst );
+		// }
+
+		const unsigned int targetBufferSize = static_cast<unsigned int>( std::ceil(sampleRateConverter.getTargetBufferSize()) );
+		uint16_t targetBuffer[ targetBufferSize ]; // ceil, since can be fractional
 		bool sourceBufferIsFullyConverted = false;
+		// TODO since we switched methods, the conversion doesn't need to take place in a loop, pare this down
+		// after testing
 		while ( ! sourceBufferIsFullyConverted )
 		{
-			// TODO remove after testing
-			// for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
-			// {
-			// 	float* inBufferLNonConst = const_cast<float*>( inBufferL );
-			// 	inBufferLNonConst[sample] = 1.0f;
-			// }
-
 			sourceBufferIsFullyConverted =
 				sampleRateConverter.convertFromSourceToTarget( inBufferL, targetBuffer );
 
@@ -206,33 +196,26 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
 			{
 				// we've filled a target buffer, so
 				// if upsampling, anti-alias filter the target
-				if ( sampleRateConverter.sourceToTargetIsUpsampling() )
-				{
-					sampleRateConverter.filterSourceToTargetUpsampling( targetBuffer );
-				}
+				// TODO fix this
+				// if ( sampleRateConverter.sourceToTargetIsUpsampling() )
+				// {
+				// 	sampleRateConverter.filterSourceToTargetUpsampling( targetBuffer );
+				// }
 
-				// TODO removing this part works just fine, but having it here creates an audible tone
-				// this could just be that the processing time is too much? Even without the filtering,
-				// this is still happening.
 				// then pass this audio into the target
-				for ( unsigned int sample = 0;
-						sample < sampleRateConverter.getTargetBufferSize();
-						sample++ )
-				{
-					targetBuffer[sample] = sAudioBuffer.getNextSample( targetBuffer[sample] );
-				}
-				sAudioBuffer.pollToFillBuffers();
+				// for ( unsigned int sample = 0;
+				// 		sample < std::ceil(sampleRateConverter.getTargetBufferSize());
+				// 		sample++ )
+				// {
+				// 	targetBuffer[sample] = sAudioBuffer.getNextSample( targetBuffer[sample] );
+				// }
+				// sAudioBuffer.pollToFillBuffers();
 
 				// if downsampling, anti-alias filter the target
-				if ( ! sampleRateConverter.targetToSourceIsUpsampling() )
-				{
-					sampleRateConverter.filterTargetToSourceDownsampling( targetBuffer );
-				}
-
-				// TODO remove after testing
-				// for ( unsigned int sample = 0; sample < sampleRateConverter.getTargetBufferSize(); sample++ )
+				// TODO fix this
+				// if ( ! sampleRateConverter.targetToSourceIsUpsampling() )
 				// {
-				// 	targetBuffer[sample] = 0;
+				// 	sampleRateConverter.filterTargetToSourceDownsampling( targetBuffer );
 				// }
 
 				// now we need to convert back
@@ -241,10 +224,10 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
 		}
 
 		// if upsampling, anti-alias filter the source
-		if ( sampleRateConverter.targetToSourceIsUpsampling() )
-		{
-			sampleRateConverter.filterTargetToSourceUpsampling( outBufferL );
-		}
+		// if ( sampleRateConverter.targetToSourceIsUpsampling() )
+		// {
+		// 	sampleRateConverter.filterTargetToSourceUpsampling( outBufferL );
+		// }
 
 		for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
 		{
