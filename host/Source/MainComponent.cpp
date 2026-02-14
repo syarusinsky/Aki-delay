@@ -122,9 +122,6 @@ MainComponent::MainComponent() :
 	this->bindToAkiDelayLCDRefreshEventSystem();
 
 	akiDelayUiManager.draw();
-
-	std::cout << "Initialized! targetRate=" << std::to_string(sampleRateConverter.getTargetRate())
-		<< ", targetBufferSize=" << std::to_string(sampleRateConverter.getTargetBufferSize()) << std::endl;
 }
 
 MainComponent::~MainComponent()
@@ -151,7 +148,6 @@ void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRat
 	// For more details, see the help for AudioProcessor::prepareToPlay()
 	sampleRateConverter.setSourceRate( static_cast<unsigned int>(sampleRate) );
 	sampleRateConverter.setSourceBufferSize( samplesPerBlockExpected );
-	sampleRateConverter.resetAllIncrs();
 	sampleRateConverter.resetAAFilters();
 	std::cout << "prepareToPlay called! rate=" << std::to_string(sampleRateConverter.getSourceRate())
 		<< ", bufferSize=" << std::to_string(sampleRateConverter.getSourceBufferSize())	<< std::endl;
@@ -168,66 +164,55 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
 		float* outBufferR = bufferToFill.buffer->getWritePointer( 1, bufferToFill.startSample );
 
 		// TODO remove after testing
-		float* inBufferLNonConst = const_cast<float*>( inBufferL );
-		for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
-		{
-			inBufferLNonConst[sample] = ( static_cast<float>(sample) / 32767.0f ) - 1.0f;
-		}
+		// float* inBufferLNonConst = const_cast<float*>( inBufferL );
+		// for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
+		// {
+		// 	// inBufferLNonConst[sample] = ( static_cast<float>(sample) / 32767.0f ) - 1.0f;
+		// 	inBufferLNonConst[sample] = -1.0f;
+		// }
 
 		// if downsampling, anti-alias filter the source
-		// if ( ! sampleRateConverter.sourceToTargetIsUpsampling() )
-		// {
-		// 	float* inBufferLNonConst = const_cast<float*>( inBufferL );
-		// 	sampleRateConverter.filterSourceToTargetDownsampling( inBufferLNonConst );
-		// }
-
-		const unsigned int targetBufferSize = static_cast<unsigned int>( std::ceil(sampleRateConverter.getTargetBufferSize()) );
-		uint16_t targetBuffer[ targetBufferSize ]; // ceil, since can be fractional
-		bool sourceBufferIsFullyConverted = false;
-		// TODO since we switched methods, the conversion doesn't need to take place in a loop, pare this down
-		// after testing
-		while ( ! sourceBufferIsFullyConverted )
+		if ( ! sampleRateConverter.sourceToTargetIsUpsampling() )
 		{
-			sourceBufferIsFullyConverted =
-				sampleRateConverter.convertFromSourceToTarget( inBufferL, targetBuffer );
-
-			if ( sampleRateConverter.getSourceToTargetTargetIncr() >= sampleRateConverter.getTargetBufferSize()
-					|| sourceBufferIsFullyConverted )
-			{
-				// we've filled a target buffer, so
-				// if upsampling, anti-alias filter the target
-				// TODO fix this
-				// if ( sampleRateConverter.sourceToTargetIsUpsampling() )
-				// {
-				// 	sampleRateConverter.filterSourceToTargetUpsampling( targetBuffer );
-				// }
-
-				// then pass this audio into the target
-				// for ( unsigned int sample = 0;
-				// 		sample < std::ceil(sampleRateConverter.getTargetBufferSize());
-				// 		sample++ )
-				// {
-				// 	targetBuffer[sample] = sAudioBuffer.getNextSample( targetBuffer[sample] );
-				// }
-				// sAudioBuffer.pollToFillBuffers();
-
-				// if downsampling, anti-alias filter the target
-				// TODO fix this
-				// if ( ! sampleRateConverter.targetToSourceIsUpsampling() )
-				// {
-				// 	sampleRateConverter.filterTargetToSourceDownsampling( targetBuffer );
-				// }
-
-				// now we need to convert back
-				sampleRateConverter.convertFromTargetToSource( targetBuffer, outBufferL );
-			}
+			float* inBufferLNonConst = const_cast<float*>( inBufferL );
+			sampleRateConverter.filterSourceToTargetDownsampling( inBufferLNonConst );
 		}
 
-		// if upsampling, anti-alias filter the source
-		// if ( sampleRateConverter.targetToSourceIsUpsampling() )
+		const unsigned int targetBufferSize = static_cast<unsigned int>( std::ceil(sampleRateConverter.getFractionalTargetBufferSize()) );
+		uint16_t targetBuffer[ targetBufferSize ]; // ceil, since can be fractional
+
+		sampleRateConverter.convertFromSourceToTarget( inBufferL, targetBuffer );
+
+		// if upsampling, anti-alias filter the target
+		// if ( sampleRateConverter.sourceToTargetIsUpsampling() )
 		// {
-		// 	sampleRateConverter.filterTargetToSourceUpsampling( outBufferL );
+		// 	sampleRateConverter.filterSourceToTargetUpsampling( targetBuffer, sampleRateConverter.getCurrentTargetBufferSize() );
 		// }
+
+		// TODO now it seems to be working, but adding this adds the bullshit crackling :(
+		// then pass this audio into the target
+		// for ( unsigned int sample = 0;
+		// 		sample < sampleRateConverter.getCurrentTargetBufferSize();
+		// 		sample++ )
+		// {
+		// 	targetBuffer[sample] = sAudioBuffer.getNextSample( targetBuffer[sample] );
+		// }
+		// sAudioBuffer.pollToFillBuffers();
+
+		// if downsampling, anti-alias filter the target
+		// if ( ! sampleRateConverter.targetToSourceIsUpsampling() )
+		// {
+		// 	sampleRateConverter.filterTargetToSourceDownsampling( targetBuffer, sampleRateConverter.getCurrentTargetBufferSize() );
+		// }
+
+		// now we need to convert back
+		sampleRateConverter.convertFromTargetToSource( targetBuffer, outBufferL );
+
+		// if upsampling, anti-alias filter the source
+		if ( sampleRateConverter.targetToSourceIsUpsampling() )
+		{
+			sampleRateConverter.filterTargetToSourceUpsampling( outBufferL );
+		}
 
 		for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
 		{
