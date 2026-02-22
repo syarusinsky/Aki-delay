@@ -122,6 +122,46 @@ MainComponent::MainComponent() :
 	this->bindToAkiDelayLCDRefreshEventSystem();
 
 	akiDelayUiManager.draw();
+
+	// TODO remove after testing
+	// const unsigned int iterations = 6; // 2 full cycles
+	// // const unsigned int testSourceBufferSize = 8;
+	// const unsigned int testSourceBufferSize = 512;
+	// // const unsigned int testTargetBufferSize = 4;
+	// const unsigned int testTargetBufferSize = 214;
+	// float testSourceBufferArr[testSourceBufferSize * iterations];
+	// for ( unsigned int sample = 0; sample < testSourceBufferSize * iterations; sample++ )
+	// {
+	// 	// testSourceBufferArr[sample] = static_cast<float>( sample + 1 ) * 0.01f;
+	// 	// testSourceBufferArr[sample] = ( static_cast<float>(sample + 1) / 32767.0f ) - 1.0f;
+
+	// 	testSourceBufferArr[sample] = static_cast<float>( sample + 1 ) * 0.0001f;
+	// }
+	// uint16_t testTargetBufferArr[testTargetBufferSize * iterations];
+	// for ( unsigned int sample = 0; sample < testTargetBufferSize * iterations; sample++ )
+	// {
+	// 	testTargetBufferArr[sample] = 0;
+	// }
+	// sampleRateConverter.setSourceRate( 96000 );
+	// sampleRateConverter.setTargetRate( 40000 );
+	// sampleRateConverter.setSourceBufferSize( testSourceBufferSize );
+	// for ( unsigned int iteration = 0; iteration < iterations; iteration++ )
+	// {
+	// 	const unsigned int testSourceBufferArrIndex = testSourceBufferSize * iteration;
+	// 	const unsigned int testTargetBufferArrIndex = testTargetBufferSize * iteration;
+	// 	float* testSourceBuffer = &testSourceBufferArr[testSourceBufferArrIndex];
+	// 	uint16_t* testTargetBuffer = &testTargetBufferArr[testTargetBufferArrIndex];
+	// 	unsigned int targetBufferSize = sampleRateConverter.convertFromSourceToTargetDownsampling( testSourceBuffer, testTargetBuffer );
+	// 	sampleRateConverter.convertFromTargetToSourceUpsampling( testTargetBuffer, targetBufferSize, testSourceBuffer );
+	// 	for ( unsigned int sample = testSourceBufferSize * iteration;
+	// 			sample < (testSourceBufferSize * iteration) + testSourceBufferSize;
+	// 			sample++ )
+	// 	{
+	// 		// testSourceBufferArr[sample] = std::round( testSourceBufferArr[sample] * 100.0 ) / 100.0;
+	// 		testSourceBufferArr[sample] = std::round( testSourceBufferArr[sample] * 10000.0 ) / 10000.0;
+	// 	}
+	// 	sampleRateConverter.resetAAFilters();
+	// }
 }
 
 MainComponent::~MainComponent()
@@ -178,35 +218,22 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
 			sampleRateConverter.filterSourceToTargetDownsampling( inBufferLNonConst );
 		}
 
-		const unsigned int targetBufferSize = static_cast<unsigned int>( std::ceil(sampleRateConverter.getFractionalTargetBufferSize()) );
-		uint16_t targetBuffer[ targetBufferSize ]; // ceil, since can be fractional
+		const unsigned int maxTargetBufferSize = static_cast<unsigned int>( std::ceil(sampleRateConverter.getFractionalTargetBufferSize()) );
+		uint16_t targetBuffer[ maxTargetBufferSize ]; // ceil, since can be fractional
 
-		sampleRateConverter.convertFromSourceToTarget( inBufferL, targetBuffer );
+		const unsigned int actualTargetBufferSize = sampleRateConverter.convertFromSourceToTargetDownsampling( inBufferL, targetBuffer );
 
-		// if upsampling, anti-alias filter the target
-		// if ( sampleRateConverter.sourceToTargetIsUpsampling() )
-		// {
-		// 	sampleRateConverter.filterSourceToTargetUpsampling( targetBuffer, sampleRateConverter.getCurrentTargetBufferSize() );
-		// }
-
-		// TODO now it seems to be working, but adding this adds the bullshit crackling :(
 		// then pass this audio into the target
-		// for ( unsigned int sample = 0;
-		// 		sample < sampleRateConverter.getCurrentTargetBufferSize();
-		// 		sample++ )
-		// {
-		// 	targetBuffer[sample] = sAudioBuffer.getNextSample( targetBuffer[sample] );
-		// }
-		// sAudioBuffer.pollToFillBuffers();
-
-		// if downsampling, anti-alias filter the target
-		// if ( ! sampleRateConverter.targetToSourceIsUpsampling() )
-		// {
-		// 	sampleRateConverter.filterTargetToSourceDownsampling( targetBuffer, sampleRateConverter.getCurrentTargetBufferSize() );
-		// }
+		for ( unsigned int sample = 0;
+				sample < actualTargetBufferSize;
+				sample++ )
+		{
+			targetBuffer[sample] = sAudioBuffer.getNextSample( targetBuffer[sample] );
+		}
+		sAudioBuffer.pollToFillBuffers();
 
 		// now we need to convert back
-		sampleRateConverter.convertFromTargetToSource( targetBuffer, outBufferL );
+		sampleRateConverter.convertFromTargetToSourceUpsampling( targetBuffer, actualTargetBufferSize, outBufferL );
 
 		// if upsampling, anti-alias filter the source
 		if ( sampleRateConverter.targetToSourceIsUpsampling() )
