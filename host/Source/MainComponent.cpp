@@ -122,46 +122,6 @@ MainComponent::MainComponent() :
 	this->bindToAkiDelayLCDRefreshEventSystem();
 
 	akiDelayUiManager.draw();
-
-	// TODO remove after testing
-	// const unsigned int iterations = 6; // 2 full cycles
-	// // const unsigned int testSourceBufferSize = 8;
-	// const unsigned int testSourceBufferSize = 512;
-	// // const unsigned int testTargetBufferSize = 4;
-	// const unsigned int testTargetBufferSize = 214;
-	// float testSourceBufferArr[testSourceBufferSize * iterations];
-	// for ( unsigned int sample = 0; sample < testSourceBufferSize * iterations; sample++ )
-	// {
-	// 	// testSourceBufferArr[sample] = static_cast<float>( sample + 1 ) * 0.01f;
-	// 	// testSourceBufferArr[sample] = ( static_cast<float>(sample + 1) / 32767.0f ) - 1.0f;
-
-	// 	testSourceBufferArr[sample] = static_cast<float>( sample + 1 ) * 0.0001f;
-	// }
-	// uint16_t testTargetBufferArr[testTargetBufferSize * iterations];
-	// for ( unsigned int sample = 0; sample < testTargetBufferSize * iterations; sample++ )
-	// {
-	// 	testTargetBufferArr[sample] = 0;
-	// }
-	// sampleRateConverter.setSourceRate( 96000 );
-	// sampleRateConverter.setTargetRate( 40000 );
-	// sampleRateConverter.setSourceBufferSize( testSourceBufferSize );
-	// for ( unsigned int iteration = 0; iteration < iterations; iteration++ )
-	// {
-	// 	const unsigned int testSourceBufferArrIndex = testSourceBufferSize * iteration;
-	// 	const unsigned int testTargetBufferArrIndex = testTargetBufferSize * iteration;
-	// 	float* testSourceBuffer = &testSourceBufferArr[testSourceBufferArrIndex];
-	// 	uint16_t* testTargetBuffer = &testTargetBufferArr[testTargetBufferArrIndex];
-	// 	unsigned int targetBufferSize = sampleRateConverter.convertFromSourceToTargetDownsampling( testSourceBuffer, testTargetBuffer );
-	// 	sampleRateConverter.convertFromTargetToSourceUpsampling( testTargetBuffer, targetBufferSize, testSourceBuffer );
-	// 	for ( unsigned int sample = testSourceBufferSize * iteration;
-	// 			sample < (testSourceBufferSize * iteration) + testSourceBufferSize;
-	// 			sample++ )
-	// 	{
-	// 		// testSourceBufferArr[sample] = std::round( testSourceBufferArr[sample] * 100.0 ) / 100.0;
-	// 		testSourceBufferArr[sample] = std::round( testSourceBufferArr[sample] * 10000.0 ) / 10000.0;
-	// 	}
-	// 	sampleRateConverter.resetAAFilters();
-	// }
 }
 
 MainComponent::~MainComponent()
@@ -202,14 +162,6 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
 		const float* inBufferR = bufferToFill.buffer->getReadPointer( 1, bufferToFill.startSample );
 		float* outBufferL = bufferToFill.buffer->getWritePointer( 0, bufferToFill.startSample );
 		float* outBufferR = bufferToFill.buffer->getWritePointer( 1, bufferToFill.startSample );
-
-		// TODO remove after testing
-		// float* inBufferLNonConst = const_cast<float*>( inBufferL );
-		// for ( auto sample = bufferToFill.startSample; sample < bufferToFill.numSamples; sample++ )
-		// {
-		// 	// inBufferLNonConst[sample] = ( static_cast<float>(sample) / 32767.0f ) - 1.0f;
-		// 	inBufferLNonConst[sample] = -1.0f;
-		// }
 
 		// if downsampling, anti-alias filter the source
 		if ( ! sampleRateConverter.sourceToTargetIsUpsampling() )
