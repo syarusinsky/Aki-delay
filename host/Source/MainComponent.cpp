@@ -181,8 +181,8 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
 				sample++ )
 		{
 			targetBuffer[sample] = sAudioBuffer.getNextSample( targetBuffer[sample] );
+			sAudioBuffer.pollToFillBuffers();
 		}
-		sAudioBuffer.pollToFillBuffers();
 
 		// now we need to convert back
 		sampleRateConverter.convertFromTargetToSourceUpsampling( targetBuffer, actualTargetBufferSize, outBufferL );
