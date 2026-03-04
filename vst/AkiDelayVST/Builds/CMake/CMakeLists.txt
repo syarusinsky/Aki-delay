@@ -10,36 +10,6 @@
 
 cmake_minimum_required(VERSION 3.22)
 
-# unfortunately since arch linux installs a pared down version of juce, I'm grabbing it from
-# github, checking out the correct tag for my arch linux version, and then using those files
-# to supplement when stuff is missing like jpegint.h. Currently running juce version 7.0.12
-set(JUCE_DIRECTORY $ENV{HOME}/Downloads/JUCE)
-
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-# Set the system name to Windows
-set(CMAKE_SYSTEM_NAME Windows)
-set(CMAKE_SYSTEM_PROCESSOR x86_64)
-
-# Specify the cross-compiler prefix (adjust if your system uses a different one)
-set(CMAKE_CROSSCOMPILER_PREFIX x86_64-w64-mingw32-)
-
-# Specify the C and C++ compilers
-set(CMAKE_C_COMPILER ${CMAKE_CROSSCOMPILER_PREFIX}gcc)
-set(CMAKE_CXX_COMPILER ${CMAKE_CROSSCOMPILER_PREFIX}g++)
-set(CMAKE_RC_COMPILER ${CMAKE_CROSSCOMPILER_PREFIX}windres)
-set(CMAKE_AR ${CMAKE_CROSSCOMPILER_PREFIX}ar)
-set(CMAKE_STRIP ${CMAKE_CROSSCOMPILER_PREFIX}strip)
-
-# Specify the build tools
-set(CMAKE_SYSROOT /usr/x86_64-w64-mingw32)
-set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-set(CMAKE_FIND_ROOT_PATH_MODE_LINK ONLY)
-
 # The top-level CMakeLists.txt file for a project must contain a literal, direct call to the
 # `project()` command. `project()` sets up some helpful variables that describe source/binary
 # directories, and the current project version. This is a standard CMake command.
@@ -140,11 +110,10 @@ target_compile_definitions(AkiDelayVST
 
 # juce_add_binary_data(AudioPluginData SOURCES ...)
 
-target_link_options(AkiDelayVST PRIVATE
-    "-static-libgcc"
-    "-static-libstdc++"
-    "-static"
-    "-Wl,--subsystem,windows")
+# ensure our plugin is statically linked and contains everything needed to run it
+set(MINGW_STATIC_FLAGS "-static -static-libgcc -static-libstdc++ -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
+set_target_properties(AkiDelayVST PROPERTIES LINK_FLAGS "${MINGW_STATIC_FLAGS}")
+set_target_properties(AkiDelayVST_VST3 PROPERTIES LINK_FLAGS "${MINGW_STATIC_FLAGS}")
 
 # `target_link_libraries` links libraries and JUCE modules to other libraries or executables. Here,
 # we're linking our executable target to the `juce::juce_audio_utils` module. Inter-module
