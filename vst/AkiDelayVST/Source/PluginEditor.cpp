@@ -11,6 +11,7 @@
 
 #include "SRAM_23K256.hpp"
 #include "AudioConstants.hpp"
+#include "FrameBuffer.hpp"
 
 //==============================================================================
 AkiDelayVSTAudioProcessorEditor::AkiDelayVSTAudioProcessorEditor (AkiDelayVSTAudioProcessor& p)
@@ -65,6 +66,8 @@ AkiDelayVSTAudioProcessorEditor::AkiDelayVSTAudioProcessorEditor (AkiDelayVSTAud
     writePresetBtn.addListener( this );
 
     setSize( 800, 600 );
+
+    this->bindToAkiDelayLCDRefreshEventSystem();
 }
 
 AkiDelayVSTAudioProcessorEditor::~AkiDelayVSTAudioProcessorEditor()
@@ -100,16 +103,19 @@ void AkiDelayVSTAudioProcessorEditor::sliderValueChanged (juce::Slider* slider)
 
     if (slider == &delayTimeSldr)
     {
-        // IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::DELAY_TIME)) );
+        IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::DELAY_TIME)) );
     }
     else if (slider == &feedbackSldr)
     {
-        // IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::FEEDBACK)) );
+        IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::FEEDBACK)) );
     }
     else if (slider == &filtFreqSldr)
     {
-        // IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::FILT_FREQ)) );
+        IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::FILT_FREQ)) );
     }
+
+    // TODO not a good way to test the target's ui since we should be only updating the dirty part of the screen, but for now I'm lazy
+    audioProcessor.getAkiDelayUiManager().draw();
 }
 
 void AkiDelayVSTAudioProcessorEditor::buttonClicked (juce::Button* button)
@@ -135,4 +141,40 @@ void AkiDelayVSTAudioProcessorEditor::buttonClicked (juce::Button* button)
         uiSim.processWritePresetBtn( false ); // floating
     }
     */
+}
+
+void AkiDelayVSTAudioProcessorEditor::onAkiDelayLCDRefreshEvent (const AkiDelayLCDRefreshEvent& lcdRefreshEvent)
+{
+    this->copyFrameBufferToImage( lcdRefreshEvent.getXStart(), lcdRefreshEvent.getYStart(),
+                                  lcdRefreshEvent.getXEnd(), lcdRefreshEvent.getYEnd() );
+    this->repaint();
+}
+
+void AkiDelayVSTAudioProcessorEditor::copyFrameBufferToImage (unsigned int xStart, unsigned int yStart, unsigned int xEnd, unsigned int yEnd)
+{
+    AkiDelayUiManager& akiDelayUiManager = audioProcessor.getAkiDelayUiManager();
+    ColorProfile* colorProfile = akiDelayUiManager.getColorProfile();
+    FrameBuffer* frameBuffer = akiDelayUiManager.getFrameBuffer();
+    unsigned int frameBufferWidth = frameBuffer->getWidth();
+
+    for ( unsigned int pixelY = yStart; pixelY < yEnd + 1; pixelY++ )
+    {
+        for ( unsigned int pixelX = xStart; pixelX < xEnd + 1; pixelX++ )
+        {
+            if ( ! colorProfile->getPixel(frameBuffer->getPixels(), frameBufferWidth * frameBuffer->getHeight(), (pixelY * frameBufferWidth) + pixelX).m_M )
+            {
+                screenRep.setPixelAt( (pixelX * 2),     (pixelY * 2),     juce::Colour(0, 0, 0) );
+                screenRep.setPixelAt( (pixelX * 2) + 1, (pixelY * 2),     juce::Colour(0, 0, 0) );
+                screenRep.setPixelAt( (pixelX * 2),     (pixelY * 2) + 1, juce::Colour(0, 0, 0) );
+                screenRep.setPixelAt( (pixelX * 2) + 1, (pixelY * 2) + 1, juce::Colour(0, 0, 0) );
+            }
+            else
+            {
+                screenRep.setPixelAt( (pixelX * 2),     (pixelY * 2),     juce::Colour(0, 97, 252) );
+                screenRep.setPixelAt( (pixelX * 2) + 1, (pixelY * 2),     juce::Colour(0, 97, 252) );
+                screenRep.setPixelAt( (pixelX * 2),     (pixelY * 2) + 1, juce::Colour(0, 97, 252) );
+                screenRep.setPixelAt( (pixelX * 2) + 1, (pixelY * 2) + 1, juce::Colour(0, 97, 252) );
+            }
+        }
+    }
 }

@@ -27,8 +27,6 @@
 #include "AkiDelayHiddenImage.h"
 #include "Smoll.h"
 
-static bool resetMaxAndMins = false;
-
 //==============================================================================
 MainComponent::MainComponent() :
 	sAudioBuffer(),
@@ -209,8 +207,6 @@ void MainComponent::releaseResources()
 	// restarted due to a setting change.
 	//
 	// For more details, see the help for AudioProcessor::releaseResources()
-	std::cout << "Resources released, resetting max and min" << std::endl;
-	resetMaxAndMins = true;
 }
 
 //==============================================================================

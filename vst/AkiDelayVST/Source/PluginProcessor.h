@@ -60,6 +60,8 @@ public:
     void getStateInformation (juce::MemoryBlock& destData) override;
     void setStateInformation (const void* data, int sizeInBytes) override;
 
+    AkiDelayUiManager& getAkiDelayUiManager() { return akiDelayUiManager; }
+
 private:
     ::AudioBuffer<uint16_t> sAudioBuffer;
 

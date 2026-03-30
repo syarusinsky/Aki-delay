@@ -14,7 +14,8 @@
 //==============================================================================
 /**
 */
-class AkiDelayVSTAudioProcessorEditor  : public juce::AudioProcessorEditor, private juce::Slider::Listener, private juce::Button::Listener
+class AkiDelayVSTAudioProcessorEditor  : public juce::AudioProcessorEditor, private juce::Slider::Listener, private juce::Button::Listener,
+                                         private IAkiDelayLCDRefreshEventListener
 {
 public:
     AkiDelayVSTAudioProcessorEditor (AkiDelayVSTAudioProcessor&);
@@ -27,6 +28,9 @@ public:
 private:
     void sliderValueChanged (juce::Slider* slider) override;
     void buttonClicked (juce::Button* button) override;
+    void onAkiDelayLCDRefreshEvent (const AkiDelayLCDRefreshEvent& lcdRefreshEvent) override;
+
+    void copyFrameBufferToImage (unsigned int xStart, unsigned int yStart, unsigned int xEnd, unsigned int yEnd);
 
     // This reference is provided as a quick way for your editor to
     // access the processor object that created it.

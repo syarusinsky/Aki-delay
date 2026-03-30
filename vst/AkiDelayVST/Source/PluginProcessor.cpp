@@ -11,10 +11,6 @@
 
 #include "AkiDelayConstants.hpp"
 #include "CPPFile.hpp"
-#include "ColorProfile.hpp"
-#include "FrameBuffer.hpp"
-#include "Font.hpp"
-#include "Sprite.hpp"
 #include "SRAM_23K256.hpp"
 
 // assets
@@ -42,6 +38,8 @@ AkiDelayVSTAudioProcessor::AkiDelayVSTAudioProcessor()
                        )
 #endif
 {
+    sAudioBuffer.registerCallback( &akiDelayManager );
+    akiDelayUiManager.draw();
 }
 
 AkiDelayVSTAudioProcessor::~AkiDelayVSTAudioProcessor()
@@ -115,6 +113,9 @@ void AkiDelayVSTAudioProcessor::prepareToPlay (double sampleRate, int samplesPer
 {
     // Use this method as the place to do any pre-playback
     // initialisation that you need..
+    sampleRateConverter.setSourceRate( static_cast<unsigned int>(sampleRate) );
+    sampleRateConverter.setSourceBufferSize( samplesPerBlock );
+    sampleRateConverter.resetAAFilters();
 }
 
 void AkiDelayVSTAudioProcessor::releaseResources()
@@ -164,17 +165,46 @@ void AkiDelayVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
     for (auto i = totalNumInputChannels; i < totalNumOutputChannels; ++i)
         buffer.clear (i, 0, buffer.getNumSamples());
 
-    // This is the place where you'd normally do the guts of your plugin's
-    // audio processing...
-    // Make sure to reset the state if your inner loop is processing
-    // the samples and the outer loop is handling the channels.
-    // Alternatively, you can process the samples with the channels
-    // interleaved by keeping the same state.
+    const float* inBufferL = buffer.getReadPointer( 0, 0 );
+    float* outBufferL = buffer.getWritePointer( 0, 0 );
+
+    // if downsampling, anti-alias filter the source
+    if ( ! sampleRateConverter.sourceToTargetIsUpsampling() )
+    {
+        float* inBufferLNonConst = const_cast<float*>( inBufferL );
+        sampleRateConverter.filterSourceToTargetDownsampling( inBufferLNonConst );
+    }
+
+    const unsigned int maxTargetBufferSize = static_cast<unsigned int>( std::ceil(sampleRateConverter.getFractionalTargetBufferSize()) );
+    uint16_t targetBuffer[ maxTargetBufferSize ]; // ceil, since can be fractional
+
+    const unsigned int actualTargetBufferSize = sampleRateConverter.convertFromSourceToTargetDownsampling( inBufferL, targetBuffer );
+
+    // then pass this audio into the target
+    for ( unsigned int sample = 0; sample < actualTargetBufferSize; sample++ )
+    {
+        targetBuffer[sample] = sAudioBuffer.getNextSample( targetBuffer[sample] );
+        sAudioBuffer.pollToFillBuffers();
+    }
+
+    // now we need to convert back
+    sampleRateConverter.convertFromTargetToSourceUpsampling( targetBuffer, actualTargetBufferSize, outBufferL );
+
+    // if upsampling, anti-alias filter the source
+    if ( sampleRateConverter.targetToSourceIsUpsampling() )
+    {
+        sampleRateConverter.filterTargetToSourceUpsampling( outBufferL );
+    }
+
+    // fill the rest of the channels with the mono audio from channel 0
     for (int channel = 0; channel < totalNumInputChannels; ++channel)
     {
         auto* channelData = buffer.getWritePointer (channel);
 
-        // ..do something to the data...
+        for ( auto sample = 0; sample < buffer.getNumSamples(); sample++ )
+        {
+            channelData[sample] = outBufferL[sample];
+        }
     }
 }
 
