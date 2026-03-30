@@ -71,7 +71,6 @@ MainComponent::MainComponent() :
 
 	// adding all child components
 	addAndMakeVisible( delayTimeSldr );
-	// this isn't actually as long of a delay time as on target, since sample rates are different
 	float maxDelayTime = static_cast<float>((Sram_23K256::SRAM_SIZE * 4)) / 2.0f / SAMPLE_RATE;
 	delayTimeSldr.setRange( 0, maxDelayTime );
 	delayTimeSldr.setTextValueSuffix( "Seconds" );

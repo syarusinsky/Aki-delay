@@ -9,10 +9,30 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
+#include "AkiDelayConstants.hpp"
+#include "CPPFile.hpp"
+#include "ColorProfile.hpp"
+#include "FrameBuffer.hpp"
+#include "Font.hpp"
+#include "Sprite.hpp"
+#include "SRAM_23K256.hpp"
+
+// assets
+#include "AkiDelayMainImage.h"
+#include "AkiDelayHiddenImage.h"
+#include "Smoll.h"
+
+static bool resetMaxAndMins = false;
+
 //==============================================================================
 AkiDelayVSTAudioProcessor::AkiDelayVSTAudioProcessor()
+    : sAudioBuffer(),
+      fakeStorageDevice( Sram_23K256::SRAM_SIZE * 4 ), // sram size on Gen_FX_SYN boards, with four srams installed
+      akiDelayManager( &fakeStorageDevice ),
+      akiDelayUiManager( Smoll_data, AkiDelayMainImage_data, AkiDelayHiddenImage_data ),
+      sampleRateConverter( 96000, SAMPLE_RATE, 512 )
 #ifndef JucePlugin_PreferredChannelConfigurations
-     : AudioProcessor (BusesProperties()
+      , AudioProcessor (BusesProperties()
                      #if ! JucePlugin_IsMidiEffect
                       #if ! JucePlugin_IsSynth
                        .withInput  ("Input",  juce::AudioChannelSet::stereo(), true)

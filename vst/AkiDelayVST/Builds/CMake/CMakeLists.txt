@@ -71,7 +71,41 @@ juce_generate_juce_header(AkiDelayVST)
 target_sources(AkiDelayVST
     PRIVATE
         ../../../Source/PluginEditor.cpp
-        ../../../Source/PluginProcessor.cpp)
+        ../../../Source/PluginProcessor.cpp
+        ../../../../src/AkiDelayManager.cpp
+        ../../../../src/AkiDelayUiManager.cpp
+        ../../../../src/IAkiDelayLCDRefreshEventListener.cpp
+        ../../../../src/IAkiDelayParameterEventListener.cpp
+        ../../../../lib/SAL/src/AntiAliasingFilter.cpp
+        ../../../../lib/SAL/src/SampleRateConverter.cpp
+        ../../../../lib/SAL/src/AudioBuffer.cpp
+        ../../../../lib/SAL/src/PresetManager.cpp
+        ../../../../lib/SAL/src/IPotEventListener.cpp
+        ../../../../lib/SAL/src/IButtonEventListener.cpp
+        ../../../../lib/SAL/src/OnePoleFilter.cpp
+        ../../../../lib/SAL/src/NoiseGate.cpp
+        ../../../../lib/SAL/src/SoftClipper.cpp
+        ../../../../lib/DevLib/src/CPPFile.cpp
+        ../../../../lib/DevLib/src/FakeStorageDevice.cpp
+        ../../../../lib/DevLib/src/IAllocator.cpp
+        ../../../../lib/SIGL/src/ColorProfile.cpp
+        ../../../../lib/SIGL/src/FrameBuffer.cpp
+        ../../../../lib/SIGL/src/Font.cpp
+        ../../../../lib/SIGL/src/Sprite.cpp
+        ../../../../lib/SIGL/src/Surface.cpp
+        ../../../../lib/SIGL/src/SoftwareGraphics.cpp)
+
+target_include_directories(AkiDelayVST
+    PRIVATE
+        ../../../../include
+        ../../../../assets
+        ../../../../lib/SAL/include
+        ../../../../lib/DevLib/include
+        ../../../../lib/SIGL/include
+        ../../../../lib/STM32f302x8-HAL/llpd/include)
+
+get_target_property(MY_INCLUDES AkiDelayVST INCLUDE_DIRECTORIES)
+message(STATUS "Include directories for MyTargetName: ${MY_INCLUDES}")
 
 # `target_compile_definitions` adds some preprocessor definitions to our target. In a Projucer
 # project, these might be passed in the 'Preprocessor Definitions' field. JUCE modules also make use
@@ -99,7 +133,8 @@ target_compile_definitions(AkiDelayVST
         JUCE_WINDOWS=1
         JUCE_MINGW=1
         JUCE_LINUX=0
-        DO_NOT_SET_USING_NAMESPACE_JUCE)
+        DO_NOT_SET_USING_NAMESPACE_JUCE
+        SOFTWARE_RENDERING)
 
 # If your target needs extra binary assets, you can add them here. The first argument is the name of
 # a new static library target that will include all the binary resources. There is an optional
@@ -114,6 +149,9 @@ target_compile_definitions(AkiDelayVST
 set(MINGW_STATIC_FLAGS "-static -static-libgcc -static-libstdc++ -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
 set_target_properties(AkiDelayVST PROPERTIES LINK_FLAGS "${MINGW_STATIC_FLAGS}")
 set_target_properties(AkiDelayVST_VST3 PROPERTIES LINK_FLAGS "${MINGW_STATIC_FLAGS}")
+
+# set standard
+set(CMAKE_CXX_STANDARD 17)
 
 # `target_link_libraries` links libraries and JUCE modules to other libraries or executables. Here,
 # we're linking our executable target to the `juce::juce_audio_utils` module. Inter-module

@@ -8,6 +8,13 @@
 
 #pragma once
 
+#include "AudioBuffer.hpp"
+#include "FakeStorageDevice.hpp"
+#include "AkiDelayManager.hpp"
+#include "AkiDelayUiManager.hpp"
+#include "IAkiDelayLCDRefreshEventListener.hpp"
+#include "SampleRateConverter.hpp"
+
 #include <JuceHeader.h>
 
 //==============================================================================
@@ -54,6 +61,15 @@ public:
     void setStateInformation (const void* data, int sizeInBytes) override;
 
 private:
+    ::AudioBuffer<uint16_t> sAudioBuffer;
+
+    FakeStorageDevice fakeStorageDevice;
+
+    AkiDelayManager akiDelayManager;
+    AkiDelayUiManager akiDelayUiManager;
+
+    SampleRateConverter<float, uint16_t> sampleRateConverter;
+
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AkiDelayVSTAudioProcessor)
 };
