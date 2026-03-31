@@ -9,7 +9,6 @@
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 
-#include "SRAM_23K256.hpp"
 #include "AudioConstants.hpp"
 #include "FrameBuffer.hpp"
 
@@ -18,10 +17,13 @@ AkiDelayVSTAudioProcessorEditor::AkiDelayVSTAudioProcessorEditor (AkiDelayVSTAud
     : AudioProcessorEditor (&p), audioProcessor (p),
       delayTimeSldr(),
       delayTimeLbl(),
+      delayTimeSldrAttachment( std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getVTS(), "delayTime", delayTimeSldr) ),
       feedbackSldr(),
       feedbackLbl(),
+      feedbackSldrAttachment( std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getVTS(), "feedback", feedbackSldr) ),
       filtFreqSldr(),
       filtFreqLbl(),
+      filtFreqSldrAttachment( std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getVTS(), "filtFreq", filtFreqSldr) ),
       prevPresetBtn( "Prev Preset" ),
       presetNumLbl( "Preset Number", "1" ),
       nextPresetBtn( "Next Preset" ),
@@ -30,8 +32,6 @@ AkiDelayVSTAudioProcessorEditor::AkiDelayVSTAudioProcessorEditor (AkiDelayVSTAud
 {
     // adding all child components
     addAndMakeVisible( delayTimeSldr );
-    float maxDelayTime = static_cast<float>((Sram_23K256::SRAM_SIZE * 4)) / 2.0f / SAMPLE_RATE;
-    delayTimeSldr.setRange( 0, maxDelayTime );
     delayTimeSldr.setTextValueSuffix( "Seconds" );
     delayTimeSldr.addListener( this );
     addAndMakeVisible( delayTimeLbl );
@@ -39,7 +39,6 @@ AkiDelayVSTAudioProcessorEditor::AkiDelayVSTAudioProcessorEditor (AkiDelayVSTAud
     delayTimeLbl.attachToComponent( &delayTimeSldr, true );
 
     addAndMakeVisible( feedbackSldr );
-    feedbackSldr.setRange( 0, 99 );
     feedbackSldr.setTextValueSuffix( "%" );
     feedbackSldr.addListener( this );
     addAndMakeVisible( feedbackLbl );
@@ -47,7 +46,6 @@ AkiDelayVSTAudioProcessorEditor::AkiDelayVSTAudioProcessorEditor (AkiDelayVSTAud
     feedbackLbl.attachToComponent( &feedbackSldr, true );
 
     addAndMakeVisible( filtFreqSldr );
-    filtFreqSldr.setRange( 1, 20000 );
     filtFreqSldr.setTextValueSuffix( "Hz" );
     filtFreqSldr.addListener( this );
     addAndMakeVisible( filtFreqLbl );
@@ -68,6 +66,17 @@ AkiDelayVSTAudioProcessorEditor::AkiDelayVSTAudioProcessorEditor (AkiDelayVSTAud
     setSize( 800, 600 );
 
     this->bindToAkiDelayLCDRefreshEventSystem();
+
+    // set initial values
+    float delayTimeSldrPercentage = (delayTimeSldr.getValue() - delayTimeSldr.getMinimum()) / (delayTimeSldr.getMaximum() - delayTimeSldr.getMinimum());
+    float feedbackSldrPercentage = (feedbackSldr.getValue() - feedbackSldr.getMinimum()) / (feedbackSldr.getMaximum() - feedbackSldr.getMinimum());
+    float filtFreqSldrPercentage = (filtFreqSldr.getValue() - filtFreqSldr.getMinimum()) / (filtFreqSldr.getMaximum() - filtFreqSldr.getMinimum());
+    IPotEventListener::PublishEvent( PotEvent(delayTimeSldrPercentage, static_cast<unsigned int>(POT_CHANNEL::DELAY_TIME)) );
+    IPotEventListener::PublishEvent( PotEvent(feedbackSldrPercentage, static_cast<unsigned int>(POT_CHANNEL::FEEDBACK)) );
+    IPotEventListener::PublishEvent( PotEvent(filtFreqSldrPercentage, static_cast<unsigned int>(POT_CHANNEL::FILT_FREQ)) );
+
+    // draw the target ui
+    audioProcessor.getAkiDelayUiManager().draw();
 }
 
 AkiDelayVSTAudioProcessorEditor::~AkiDelayVSTAudioProcessorEditor()

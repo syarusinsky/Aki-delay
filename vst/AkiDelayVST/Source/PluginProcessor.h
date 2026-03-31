@@ -14,6 +14,7 @@
 #include "AkiDelayUiManager.hpp"
 #include "IAkiDelayLCDRefreshEventListener.hpp"
 #include "SampleRateConverter.hpp"
+#include "SRAM_23K256.hpp"
 
 #include <JuceHeader.h>
 
@@ -62,6 +63,10 @@ public:
 
     AkiDelayUiManager& getAkiDelayUiManager() { return akiDelayUiManager; }
 
+    AudioProcessorValueTreeState& getVTS() { return apvts; }
+
+    constexpr static float MAX_DELAY_TIME = static_cast<float>((Sram_23K256::SRAM_SIZE * 4)) / 2.0f / SAMPLE_RATE;
+
 private:
     ::AudioBuffer<uint16_t> sAudioBuffer;
 
@@ -71,6 +76,9 @@ private:
     AkiDelayUiManager akiDelayUiManager;
 
     SampleRateConverter<float, uint16_t> sampleRateConverter;
+
+    UndoManager undoManager;
+    AudioProcessorValueTreeState apvts;
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AkiDelayVSTAudioProcessor)

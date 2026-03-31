@@ -38,12 +38,15 @@ private:
 
     juce::Slider delayTimeSldr;
     juce::Label delayTimeLbl;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> delayTimeSldrAttachment;
 
     juce::Slider feedbackSldr;
     juce::Label feedbackLbl;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> feedbackSldrAttachment;
 
     juce::Slider filtFreqSldr;
     juce::Label filtFreqLbl;
+    std::unique_ptr<juce::AudioProcessorValueTreeState::SliderAttachment> filtFreqSldrAttachment;
 
     juce::TextButton prevPresetBtn;
     juce::Label presetNumLbl;

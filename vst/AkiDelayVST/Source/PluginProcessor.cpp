@@ -18,15 +18,19 @@
 #include "AkiDelayHiddenImage.h"
 #include "Smoll.h"
 
-static bool resetMaxAndMins = false;
-
 //==============================================================================
 AkiDelayVSTAudioProcessor::AkiDelayVSTAudioProcessor()
     : sAudioBuffer(),
       fakeStorageDevice( Sram_23K256::SRAM_SIZE * 4 ), // sram size on Gen_FX_SYN boards, with four srams installed
       akiDelayManager( &fakeStorageDevice ),
       akiDelayUiManager( Smoll_data, AkiDelayMainImage_data, AkiDelayHiddenImage_data ),
-      sampleRateConverter( 96000, SAMPLE_RATE, 512 )
+      sampleRateConverter( 96000, SAMPLE_RATE, 512 ),
+      undoManager(),
+      apvts( *this, &undoManager, "PARAMETERS",
+                                  { std::make_unique<AudioParameterFloat> ("delayTime", "Delay Time", NormalisableRange<float> (0.0f, MAX_DELAY_TIME), 0),
+                                    std::make_unique<AudioParameterInt> ("feedback", "Feedback", 0, 99, 0),
+                                    std::make_unique<AudioParameterInt> ("filtFreq", "Filter Freq", 1, 20000, 20000),
+                                  })
 #ifndef JucePlugin_PreferredChannelConfigurations
       , AudioProcessor (BusesProperties()
                      #if ! JucePlugin_IsMidiEffect
@@ -225,12 +229,23 @@ void AkiDelayVSTAudioProcessor::getStateInformation (juce::MemoryBlock& destData
     // You should use this method to store your parameters in the memory block.
     // You could do that either as raw data, or use the XML or ValueTree classes
     // as intermediaries to make it easy to save and load complex data.
+    auto state = apvts.copyState();
+    std::unique_ptr<juce::XmlElement> xml (state.createXml());
+    copyXmlToBinary (*xml, destData);
 }
 
 void AkiDelayVSTAudioProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     // You should use this method to restore your parameters from this memory block,
     // whose contents will have been created by the getStateInformation() call.
+    std::unique_ptr<juce::XmlElement> xmlState (getXmlFromBinary (data, sizeInBytes));
+    if (xmlState.get() != nullptr)
+    {
+        if (xmlState->hasTagName (apvts.state.getType()))
+        {
+            apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
+        }
+    }
 }
 
 //==============================================================================
