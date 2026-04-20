@@ -15,8 +15,11 @@
 #include "IAkiDelayLCDRefreshEventListener.hpp"
 #include "SampleRateConverter.hpp"
 #include "SRAM_23K256.hpp"
+#include "PresetManager.hpp"
 
 #include <JuceHeader.h>
+
+class AkiDelayVSTAudioProcessorEditor;
 
 //==============================================================================
 /**
@@ -65,12 +68,20 @@ public:
 
     AudioProcessorValueTreeState& getVTS() { return apvts; }
 
+    // this is a workaround for the fact that vst plugins share memory across multiple
+    // instances, so the static member variables of the event listeners end up sending
+    // events to all instances of the plugin
+    void dispatchEventsForIds (unsigned int processorId, const unsigned int processorEditorId);
+    unsigned int getProcessorId() { return processorId; }
+
     constexpr static float MAX_DELAY_TIME = static_cast<float>((Sram_23K256::SRAM_SIZE * 4)) / 2.0f / SAMPLE_RATE;
 
 private:
     ::AudioBuffer<uint16_t> sAudioBuffer;
 
     FakeStorageDevice fakeStorageDevice;
+
+    PresetManager presetManager;
 
     AkiDelayManager akiDelayManager;
     AkiDelayUiManager akiDelayUiManager;
@@ -79,6 +90,9 @@ private:
 
     UndoManager undoManager;
     AudioProcessorValueTreeState apvts;
+
+    unsigned int processorId;
+    unsigned int processorEditorId = 0 - 1; // this must be correctly initialized on the createEditor function
 
     //==============================================================================
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (AkiDelayVSTAudioProcessor)

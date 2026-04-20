@@ -2,11 +2,15 @@
 
 #include "AkiDelayConstants.hpp"
 #include "SRAM_23K256.hpp"
+#include "PresetManager.hpp"
+#include "IAkiDelayPresetEventListener.hpp"
 
 #include <string.h>
 
-AkiDelayManager::AkiDelayManager (IStorageMedia* delayBufferStorage) :
+AkiDelayManager::AkiDelayManager (IStorageMedia* delayBufferStorage, PresetManager* presetManager) :
 	m_StorageMedia( delayBufferStorage ),
+	m_PresetManager( presetManager ),
+	m_PresetHeader( {1, 0, 0, true} ),
 	m_DelayTime( 0.0f ),
 	m_Feedback( 0.0f ),
 	m_FiltFreq( 20000.0f ),
@@ -49,6 +53,34 @@ void AkiDelayManager::setFiltFreq (float filtFreq)
 {
 	m_FiltFreq = filtFreq;
 	m_Filt.setCoefficients( filtFreq );
+}
+
+AkiDelayState AkiDelayManager::getState()
+{
+	AkiDelayState state = { m_DelayTime, m_Feedback, m_FiltFreq };
+
+	return state;
+}
+
+void AkiDelayManager::setState (const AkiDelayState& state)
+{
+	this->setDelayTime( state.m_DelayTime );
+	this->setFeedback( state.m_Feedback );
+	this->setFiltFreq( state.m_FiltFreq );
+}
+
+void AkiDelayManager::loadCurrentPreset()
+{
+	if ( m_PresetManager )
+	{
+		AkiDelayState preset = m_PresetManager->retrievePreset<AkiDelayState>( m_PresetManager->getCurrentPresetNum() );
+		this->setState( preset );
+	}
+}
+
+AkiDelayPresetHeader AkiDelayManager::getPresetHeader()
+{
+	return m_PresetHeader;
 }
 
 void AkiDelayManager::call (uint16_t* writeBuffer)
@@ -197,7 +229,7 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 
 		for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
 		{
-			float outSample = ( writeBuffer[sample] + (readDataPtr[sample] * feedback) ) * 0.4f;
+			float outSample = ( writeBuffer[sample] + (readDataPtr[sample] * feedback) ) * 0.5f;
 			float filteredSample = m_Filt.processSample( outSample );
 
 			writeDataPtr[sample] = static_cast<uint16_t>( filteredSample );
@@ -213,26 +245,56 @@ void AkiDelayManager::call (uint16_t* writeBuffer)
 	for ( unsigned int sample = 0; sample < ABUFFER_SIZE; sample++ )
 	{
 		// we also need to offset the 1.5 gain from the soft clipper, otherwise the clipping sounds a bit ugly
-		writeBuffer[sample] = m_SoftClipper.processSample( static_cast<uint16_t>(readDataPtr[sample] * 0.816497f) );
+		writeBuffer[sample] = m_SoftClipper.processSample( static_cast<uint16_t>(readDataPtr[sample]) );
 	}
 }
 
 void AkiDelayManager::onAkiDelayParameterEvent (const AkiDelayParameterEvent& paramEvent)
 {
 	unsigned int channel = paramEvent.getChannel();
-	POT_CHANNEL channelEnum = static_cast<POT_CHANNEL>( channel );
+	PARAM_CHANNEL channelEnum = static_cast<PARAM_CHANNEL>( channel );
 	float valueToSet = paramEvent.getValue();
 
-	if ( channelEnum == POT_CHANNEL::DELAY_TIME )
+	if ( channelEnum == PARAM_CHANNEL::DELAY_TIME )
 	{
 		this->setDelayTime( valueToSet );
 	}
-	else if ( channelEnum == POT_CHANNEL::FEEDBACK )
+	else if ( channelEnum == PARAM_CHANNEL::FEEDBACK )
 	{
 		this->setFeedback( valueToSet );
 	}
-	else if ( channelEnum == POT_CHANNEL::FILT_FREQ )
+	else if ( channelEnum == PARAM_CHANNEL::FILT_FREQ )
 	{
 		this->setFiltFreq( valueToSet );
+	}
+	else if ( channelEnum == PARAM_CHANNEL::NEXT_PRESET )
+	{
+		if ( m_PresetManager )
+		{
+			AkiDelayState preset = m_PresetManager->nextPreset<AkiDelayState>();
+			this->setState( preset );
+			IAkiDelayPresetEventListener::PublishEvent(
+						AkiDelayPresetEvent(this->getState(), m_PresetManager->getCurrentPresetNum(), 0) );
+		}
+	}
+	else if ( channelEnum == PARAM_CHANNEL::PREV_PRESET )
+	{
+		if ( m_PresetManager )
+		{
+			AkiDelayState preset = m_PresetManager->prevPreset<AkiDelayState>();
+			this->setState( preset );
+			IAkiDelayPresetEventListener::PublishEvent(
+						AkiDelayPresetEvent(this->getState(), m_PresetManager->getCurrentPresetNum(), 0) );
+		}
+	}
+	else if ( channelEnum == PARAM_CHANNEL::WRITE_PRESET )
+	{
+		if ( m_PresetManager )
+		{
+			AkiDelayState presetToWrite = this->getState();
+			m_PresetManager->writePreset<AkiDelayState>( presetToWrite, m_PresetManager->getCurrentPresetNum() );
+			IAkiDelayPresetEventListener::PublishEvent(
+						AkiDelayPresetEvent(this->getState(), m_PresetManager->getCurrentPresetNum(), 0) );
+		}
 	}
 }

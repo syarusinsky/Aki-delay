@@ -10,6 +10,7 @@
 #include "PluginEditor.h"
 
 #include "AkiDelayConstants.hpp"
+#include "AkiDelayPresetUpgrader.hpp"
 #include "CPPFile.hpp"
 #include "SRAM_23K256.hpp"
 
@@ -22,15 +23,17 @@
 AkiDelayVSTAudioProcessor::AkiDelayVSTAudioProcessor()
     : sAudioBuffer(),
       fakeStorageDevice( Sram_23K256::SRAM_SIZE * 4 ), // sram size on Gen_FX_SYN boards, with four srams installed
-      akiDelayManager( &fakeStorageDevice ),
+      presetManager( sizeof(AkiDelayPresetHeader), 20, new CPPFile("AkiDelayPresets.spf") ),
+      akiDelayManager( &fakeStorageDevice, &presetManager ),
       akiDelayUiManager( Smoll_data, AkiDelayMainImage_data, AkiDelayHiddenImage_data ),
       sampleRateConverter( 96000, SAMPLE_RATE, 512 ),
       undoManager(),
       apvts( *this, &undoManager, "PARAMETERS",
-                                  { std::make_unique<AudioParameterFloat> ("delayTime", "Delay Time", NormalisableRange<float> (0.0f, MAX_DELAY_TIME), 0),
-                                    std::make_unique<AudioParameterInt> ("feedback", "Feedback", 0, 99, 0),
-                                    std::make_unique<AudioParameterInt> ("filtFreq", "Filter Freq", 1, 20000, 20000),
-                                  })
+                                  { std::make_unique<AudioParameterFloat> ("effect1", "Delay Time", NormalisableRange<float> (0.0f, MAX_DELAY_TIME), 0),
+                                    std::make_unique<AudioParameterInt> ("effect2", "Feedback", 0, 99, 0),
+                                    std::make_unique<AudioParameterInt> ("effect3", "Filter Freq", 1, 20000, 20000),
+                                  }),
+      processorId( IEventListener::getGlobalJuceProcessorId() )
 #ifndef JucePlugin_PreferredChannelConfigurations
       , AudioProcessor (BusesProperties()
                      #if ! JucePlugin_IsMidiEffect
@@ -42,8 +45,20 @@ AkiDelayVSTAudioProcessor::AkiDelayVSTAudioProcessor()
                        )
 #endif
 {
+    // clear storage device to prevent noise
+    SharedData<uint8_t> data = SharedData<uint8_t>::MakeSharedData( Sram_23K256::SRAM_SIZE * 4 );
+    for ( unsigned int byteNum = 0; byteNum < Sram_23K256::SRAM_SIZE * 4; byteNum++ )
+    {
+        data[byteNum] = 32768;
+    }
+    fakeStorageDevice.writeToMedia( data, 0 );
+
+    // upgrade presets if necessary
+    AkiDelayState initPreset = { 0.0f, 0.0f, 20000.0f };
+    AkiDelayPresetUpgrader presetUpgrader( initPreset, akiDelayManager.getPresetHeader() );
+    presetManager.upgradePresets( &presetUpgrader );
+
     sAudioBuffer.registerCallback( &akiDelayManager );
-    akiDelayUiManager.draw();
 }
 
 AkiDelayVSTAudioProcessor::~AkiDelayVSTAudioProcessor()
@@ -210,6 +225,8 @@ void AkiDelayVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
             channelData[sample] = outBufferL[sample];
         }
     }
+
+    this->dispatchEventsForIds( processorId, processorEditorId );
 }
 
 //==============================================================================
@@ -220,7 +237,11 @@ bool AkiDelayVSTAudioProcessor::hasEditor() const
 
 juce::AudioProcessorEditor* AkiDelayVSTAudioProcessor::createEditor()
 {
-    return new AkiDelayVSTAudioProcessorEditor (*this);
+    AkiDelayVSTAudioProcessorEditor* editor = new AkiDelayVSTAudioProcessorEditor( *this );
+    processorEditorId = editor->getProcessorEditorId();
+    this->dispatchEventsForIds( processorId, processorEditorId );
+
+    return editor;
 }
 
 //==============================================================================
@@ -244,8 +265,42 @@ void AkiDelayVSTAudioProcessor::setStateInformation (const void* data, int sizeI
         if (xmlState->hasTagName (apvts.state.getType()))
         {
             apvts.replaceState (juce::ValueTree::fromXml (*xmlState));
+
+            // set initial values
+            juce::AudioParameterFloat* e1 = dynamic_cast<juce::AudioParameterFloat*>( apvts.getParameter("effect1") );
+            juce::AudioParameterInt* e2 = dynamic_cast<juce::AudioParameterInt*>( apvts.getParameter("effect2") );
+            juce::AudioParameterInt* e3 = dynamic_cast<juce::AudioParameterInt*>( apvts.getParameter("effect3") );
+            juce::Range<float> e1Range = e1->getNormalisableRange().getRange();
+            juce::Range<int> e2Range = e2->getRange();
+            juce::Range<int> e3Range = e3->getRange();
+            float effect1SldrPercentage = ( e1->get() - e1Range.getStart()) / (e1Range.getEnd() - e1Range.getStart() );
+            float effect2SldrPercentage = ( e2->get() - e2Range.getStart()) / (e2Range.getEnd() - e2Range.getStart() );
+            float effect3SldrPercentage = ( e3->get() - e3Range.getStart()) / (e3Range.getEnd() - e3Range.getStart() );
+            IPotEventListener::PublishEvent( PotEvent(effect1SldrPercentage, static_cast<unsigned int>(POT_CHANNEL::EFFECT1), true) );
+            IPotEventListener::PublishEvent( PotEvent(effect2SldrPercentage, static_cast<unsigned int>(POT_CHANNEL::EFFECT2), true) );
+            IPotEventListener::PublishEvent( PotEvent(effect3SldrPercentage, static_cast<unsigned int>(POT_CHANNEL::EFFECT3), true) );
+
+            this->dispatchEventsForIds( processorId, processorEditorId );
         }
     }
+}
+
+void AkiDelayVSTAudioProcessor::dispatchEventsForIds (const unsigned int processorId, const unsigned int processorEditorId)
+{
+    // The sequencing of these calls is extremely important and it's possible for other projects that the juceDispatchQueuedEvents function
+    // may need to be called more than once if the event handling of a different event listener publishes new events to an event listener that
+    // has already called it's juceDispatchQueuedEvents function. For example with this project IPotEventListener and IButtonEventListener handling
+    // publishes IAkiDelayParameterEventListener and IAkiDelayParameterEventListener events, so they must be called first. Likewise, the handling of
+    // IAkiDelayParameterEventListener and IAkiDelayLCDRefreshEventListener events publishes IAkiDelayLCDRefreshEventListener events, so those must
+    // be called before IAkiDelayLCDRefreshEventListener. The onus is on the user to sequence these correctly in the most performant way possible.
+    EventDispatcher<IPotEventListener, PotEvent, &IPotEventListener::onPotEvent>::juceDispatchQueuedEvents( processorId, processorEditorId );
+    EventDispatcher<IButtonEventListener, ButtonEvent, &IButtonEventListener::onButtonEvent>::juceDispatchQueuedEvents( processorId, processorEditorId );
+    EventDispatcher<IAkiDelayParameterEventListener, AkiDelayParameterEvent,
+                    &IAkiDelayParameterEventListener::onAkiDelayParameterEvent>::juceDispatchQueuedEvents( processorId, processorEditorId );
+    EventDispatcher<IAkiDelayPresetEventListener, AkiDelayPresetEvent,
+                    &IAkiDelayPresetEventListener::onAkiDelayPresetChangedEvent>::juceDispatchQueuedEvents( processorId, processorEditorId );
+    EventDispatcher<IAkiDelayLCDRefreshEventListener, AkiDelayLCDRefreshEvent,
+                    &IAkiDelayLCDRefreshEventListener::onAkiDelayLCDRefreshEvent>::juceDispatchQueuedEvents( processorId, processorEditorId );
 }
 
 //==============================================================================

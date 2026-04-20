@@ -15,65 +15,54 @@
 //==============================================================================
 AkiDelayVSTAudioProcessorEditor::AkiDelayVSTAudioProcessorEditor (AkiDelayVSTAudioProcessor& p)
     : AudioProcessorEditor (&p), audioProcessor (p),
-      delayTimeSldr(),
-      delayTimeLbl(),
-      delayTimeSldrAttachment( std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getVTS(), "delayTime", delayTimeSldr) ),
-      feedbackSldr(),
-      feedbackLbl(),
-      feedbackSldrAttachment( std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getVTS(), "feedback", feedbackSldr) ),
-      filtFreqSldr(),
-      filtFreqLbl(),
-      filtFreqSldrAttachment( std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getVTS(), "filtFreq", filtFreqSldr) ),
-      prevPresetBtn( "Prev Preset" ),
-      presetNumLbl( "Preset Number", "1" ),
-      nextPresetBtn( "Next Preset" ),
-      writePresetBtn( "Write Preset" ),
-      screenRep( juce::Image::RGB, 256, 128, true ) // this is actually double the size so we can actually see it
+      effect1Sldr(),
+      effect1Lbl(),
+      effect1SldrAttachment( std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getVTS(), "effect1", effect1Sldr) ),
+      effect2Sldr(),
+      effect2Lbl(),
+      effect2SldrAttachment( std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getVTS(), "effect2", effect2Sldr) ),
+      effect3Sldr(),
+      effect3Lbl(),
+      effect3SldrAttachment( std::make_unique<juce::AudioProcessorValueTreeState::SliderAttachment>(audioProcessor.getVTS(), "effect3", effect3Sldr) ),
+      effect1Btn( "Effect 1" ),
+      effect2Btn( "Effect 2" ),
+      screenRep( juce::Image::RGB, 256, 128, true ), // this is actually double the size so we can actually see it
+      processorEditorId( IEventListener::getGlobalJuceProcessorId() )
 {
     // adding all child components
-    addAndMakeVisible( delayTimeSldr );
-    delayTimeSldr.setTextValueSuffix( "Seconds" );
-    delayTimeSldr.addListener( this );
-    addAndMakeVisible( delayTimeLbl );
-    delayTimeLbl.setText( "Delay Time", juce::dontSendNotification );
-    delayTimeLbl.attachToComponent( &delayTimeSldr, true );
+    addAndMakeVisible( effect1Sldr );
+    effect1Sldr.setTextValueSuffix( "Seconds" );
+    effect1Sldr.addListener( this );
+    addAndMakeVisible( effect1Lbl );
+    effect1Lbl.setText( "Delay Time", juce::dontSendNotification );
+    effect1Lbl.attachToComponent( &effect1Sldr, true );
 
-    addAndMakeVisible( feedbackSldr );
-    feedbackSldr.setTextValueSuffix( "%" );
-    feedbackSldr.addListener( this );
-    addAndMakeVisible( feedbackLbl );
-    feedbackLbl.setText( "Feedback", juce::dontSendNotification );
-    feedbackLbl.attachToComponent( &feedbackSldr, true );
+    addAndMakeVisible( effect2Sldr );
+    effect2Sldr.setTextValueSuffix( "%" );
+    effect2Sldr.addListener( this );
+    addAndMakeVisible( effect2Lbl );
+    effect2Lbl.setText( "Feedback", juce::dontSendNotification );
+    effect2Lbl.attachToComponent( &effect2Sldr, true );
 
-    addAndMakeVisible( filtFreqSldr );
-    filtFreqSldr.setTextValueSuffix( "Hz" );
-    filtFreqSldr.addListener( this );
-    addAndMakeVisible( filtFreqLbl );
-    filtFreqLbl.setText( "LPF Freq", juce::dontSendNotification );
-    filtFreqLbl.attachToComponent( &filtFreqSldr, true );
+    addAndMakeVisible( effect3Sldr );
+    effect3Sldr.setTextValueSuffix( "Hz" );
+    effect3Sldr.addListener( this );
+    addAndMakeVisible( effect3Lbl );
+    effect3Lbl.setText( "LPF Freq", juce::dontSendNotification );
+    effect3Lbl.attachToComponent( &effect3Sldr, true );
 
-    addAndMakeVisible( prevPresetBtn );
-    prevPresetBtn.addListener( this );
+    addAndMakeVisible( effect1Btn );
+    effect1Btn.addListener( this );
 
-    addAndMakeVisible( presetNumLbl );
-
-    addAndMakeVisible( nextPresetBtn );
-    nextPresetBtn.addListener( this );
-
-    addAndMakeVisible( writePresetBtn );
-    writePresetBtn.addListener( this );
+    addAndMakeVisible( effect2Btn );
+    effect2Btn.addListener( this );
 
     setSize( 800, 600 );
 
     this->bindToAkiDelayLCDRefreshEventSystem();
+    this->bindToAkiDelayPresetEventSystem();
 
-    // set initial values
-    float delayTimeSldrPercentage = (delayTimeSldr.getValue() - delayTimeSldr.getMinimum()) / (delayTimeSldr.getMaximum() - delayTimeSldr.getMinimum());
-    float feedbackSldrPercentage = (feedbackSldr.getValue() - feedbackSldr.getMinimum()) / (feedbackSldr.getMaximum() - feedbackSldr.getMinimum());
-    float filtFreqSldrPercentage = (filtFreqSldr.getValue() - filtFreqSldr.getMinimum()) / (filtFreqSldr.getMaximum() - filtFreqSldr.getMinimum());
-    IPotEventListener::PublishEvent( PotEvent(delayTimeSldrPercentage, static_cast<unsigned int>(POT_CHANNEL::DELAY_TIME)) );
-    IPotEventListener::PublishEvent( PotEvent(feedbackSldrPercentage, static_cast<unsigned int>(POT_CHANNEL::FEEDBACK)) );
-    IPotEventListener::PublishEvent( PotEvent(filtFreqSldrPercentage, static_cast<unsigned int>(POT_CHANNEL::FILT_FREQ)) );
+    this->startTimer( 33 );
 
     // draw the target ui
     audioProcessor.getAkiDelayUiManager().draw();
@@ -81,6 +70,33 @@ AkiDelayVSTAudioProcessorEditor::AkiDelayVSTAudioProcessorEditor (AkiDelayVSTAud
 
 AkiDelayVSTAudioProcessorEditor::~AkiDelayVSTAudioProcessorEditor()
 {
+}
+
+void AkiDelayVSTAudioProcessorEditor::timerCallback()
+{
+    AkiDelayUiManager& akiDelayUiManager = audioProcessor.getAkiDelayUiManager();
+    akiDelayUiManager.processEffect1Btn( effect1Btn.isDown() );
+
+    // since the effect button holding logic requires the sequencing of the button events to be in order, we need to dispatch here as well
+    audioProcessor.dispatchEventsForIds( audioProcessor.getProcessorId(), processorEditorId );
+
+    akiDelayUiManager.processEffect2Btn( effect2Btn.isDown() );
+
+    double effect1Val = effect1Sldr.getValue();
+    float effect1Percentage = ( effect1Sldr.getValue() - effect1Sldr.getMinimum() )
+                                / ( effect1Sldr.getMaximum() - effect1Sldr.getMinimum() );
+    double effect2Val = effect2Sldr.getValue();
+    float effect2Percentage = ( effect2Sldr.getValue() - effect2Sldr.getMinimum() )
+                                / ( effect2Sldr.getMaximum() - effect2Sldr.getMinimum() );
+    double effect3Val = effect3Sldr.getValue();
+    float effect3Percentage = ( effect3Sldr.getValue() - effect3Sldr.getMinimum() )
+                                / ( effect3Sldr.getMaximum() - effect3Sldr.getMinimum() );
+
+    IPotEventListener::PublishEvent( PotEvent(effect1Percentage, static_cast<unsigned int>(POT_CHANNEL::EFFECT1)) );
+    IPotEventListener::PublishEvent( PotEvent(effect2Percentage, static_cast<unsigned int>(POT_CHANNEL::EFFECT2)) );
+    IPotEventListener::PublishEvent( PotEvent(effect3Percentage, static_cast<unsigned int>(POT_CHANNEL::EFFECT3)) );
+
+    audioProcessor.dispatchEventsForIds( audioProcessor.getProcessorId(), processorEditorId );
 }
 
 //==============================================================================
@@ -96,60 +112,50 @@ void AkiDelayVSTAudioProcessorEditor::paint (juce::Graphics& g)
 void AkiDelayVSTAudioProcessorEditor::resized()
 {
     int sliderLeft = 120;
-    delayTimeSldr.setBounds 	(sliderLeft, 20, getWidth() - sliderLeft - 10, 20);
-    feedbackSldr.setBounds 	(sliderLeft, 60, getWidth() - sliderLeft - 10, 20);
-    filtFreqSldr.setBounds 	(sliderLeft, 100, getWidth() - sliderLeft - 10, 20);
-    prevPresetBtn.setBounds 	(sliderLeft + (getWidth() / 5) * 1, 1010, ((getWidth() - sliderLeft - 10) / 5), 20);
-    presetNumLbl.setBounds 	(sliderLeft + (getWidth() / 5) * 2, 1010, ((getWidth() - sliderLeft - 10) / 5), 20);
-    nextPresetBtn.setBounds 	((getWidth() / 5) * 3, 1010, ((getWidth() - sliderLeft - 10) / 5), 20);
-    writePresetBtn.setBounds 	((getWidth() / 5) * 4, 1010, ((getWidth() - sliderLeft - 10) / 5), 20);
+    effect1Sldr.setBounds 	(sliderLeft, 20, getWidth() - sliderLeft - 10, 20);
+    effect2Sldr.setBounds 	(sliderLeft, 60, getWidth() - sliderLeft - 10, 20);
+    effect3Sldr.setBounds 	(sliderLeft, 100, getWidth() - sliderLeft - 10, 20);
+    effect1Btn.setBounds      	(sliderLeft, 300, (getWidth() / 2) - sliderLeft - 10, 20);
+    effect2Btn.setBounds      	(sliderLeft, 340, (getWidth() / 2) - sliderLeft - 10, 20);
 }
 
 void AkiDelayVSTAudioProcessorEditor::sliderValueChanged (juce::Slider* slider)
 {
-    double val = slider->getValue();
-    float percentage = (slider->getValue() - slider->getMinimum()) / (slider->getMaximum() - slider->getMinimum());
-
-    if (slider == &delayTimeSldr)
-    {
-        IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::DELAY_TIME)) );
-    }
-    else if (slider == &feedbackSldr)
-    {
-        IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::FEEDBACK)) );
-    }
-    else if (slider == &filtFreqSldr)
-    {
-        IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::FILT_FREQ)) );
-    }
-
-    // TODO not a good way to test the target's ui since we should be only updating the dirty part of the screen, but for now I'm lazy
-    audioProcessor.getAkiDelayUiManager().draw();
 }
 
 void AkiDelayVSTAudioProcessorEditor::buttonClicked (juce::Button* button)
 {
-    // TODO reimplement these
-    /*
-    if (button == &prevPresetBtn)
+}
+
+bool AkiDelayVSTAudioProcessorEditor::keyPressed (const juce::KeyPress& k)
+{
+    // for holding both buttons down at the same time
+    if ( k.getTextCharacter() == 'z' )
     {
-        uiSim.processPrevPresetBtn( true ); // pressed
-        uiSim.processPrevPresetBtn( false ); // released
-        uiSim.processPrevPresetBtn( false ); // floating
+        effect1Btn.setState( juce::Button::ButtonState::buttonDown );
+        effect2Btn.setState( juce::Button::ButtonState::buttonDown );
     }
-    else if (button == &nextPresetBtn)
+    else if ( k.getTextCharacter() == '9' )
     {
-        uiSim.processNextPresetBtn( true ); // pressed
-        uiSim.processNextPresetBtn( false ); // released
-        uiSim.processNextPresetBtn( false ); // floating
+        effect1Btn.setState( juce::Button::ButtonState::buttonDown );
     }
-    else if (button == &writePresetBtn)
+    else if ( k.getTextCharacter() == '0' )
     {
-        uiSim.processWritePresetBtn( true ); // pressed
-        uiSim.processWritePresetBtn( false ); // released
-        uiSim.processWritePresetBtn( false ); // floating
+        effect2Btn.setState( juce::Button::ButtonState::buttonDown );
     }
-    */
+
+    return true;
+}
+
+bool AkiDelayVSTAudioProcessorEditor::keyStateChanged (bool isKeyDown)
+{
+    if ( ! isKeyDown ) // if a key has been released
+    {
+        effect1Btn.setState( juce::Button::ButtonState::buttonNormal );
+        effect2Btn.setState( juce::Button::ButtonState::buttonNormal );
+    }
+
+    return true;
 }
 
 void AkiDelayVSTAudioProcessorEditor::onAkiDelayLCDRefreshEvent (const AkiDelayLCDRefreshEvent& lcdRefreshEvent)
@@ -157,6 +163,14 @@ void AkiDelayVSTAudioProcessorEditor::onAkiDelayLCDRefreshEvent (const AkiDelayL
     this->copyFrameBufferToImage( lcdRefreshEvent.getXStart(), lcdRefreshEvent.getYStart(),
                                   lcdRefreshEvent.getXEnd(), lcdRefreshEvent.getYEnd() );
     this->repaint();
+}
+
+void AkiDelayVSTAudioProcessorEditor::onAkiDelayPresetChangedEvent (const AkiDelayPresetEvent& presetEvent)
+{
+    AkiDelayState state = presetEvent.getPreset();
+    effect1Sldr.setValue( state.m_DelayTime );
+    effect2Sldr.setValue( state.m_Feedback * 100.0f );
+    effect3Sldr.setValue( state.m_FiltFreq );
 }
 
 void AkiDelayVSTAudioProcessorEditor::copyFrameBufferToImage (unsigned int xStart, unsigned int yStart, unsigned int xEnd, unsigned int yEnd)

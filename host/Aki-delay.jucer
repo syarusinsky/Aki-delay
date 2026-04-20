@@ -4,6 +4,14 @@
               cppLanguageStandard="17">
   <MAINGROUP id="Nwhz3w" name="Aki-delay">
     <GROUP id="{98D80E54-6CF9-BEAB-7DA1-8D820991FECF}" name="Source">
+      <FILE id="arXHVi" name="IAkiDelayPresetEventListener.cpp" compile="1"
+            resource="0" file="../src/IAkiDelayPresetEventListener.cpp"/>
+      <FILE id="bBs933" name="IAkiDelayPresetEventListener.hpp" compile="0"
+            resource="0" file="../include/IAkiDelayPresetEventListener.hpp"/>
+      <FILE id="cKw4u6" name="AkiDelayPresetUpgrader.cpp" compile="1" resource="0"
+            file="../src/AkiDelayPresetUpgrader.cpp"/>
+      <FILE id="I7rdtV" name="AkiDelayPresetUpgrader.hpp" compile="0" resource="0"
+            file="../include/AkiDelayPresetUpgrader.hpp"/>
       <FILE id="htHRnK" name="AntiAliasingFilter.hpp" compile="0" resource="0"
             file="../lib/SAL/include/AntiAliasingFilter.hpp"/>
       <FILE id="wQTgqm" name="AntiAliasingFilter.cpp" compile="1" resource="0"

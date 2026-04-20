@@ -15,6 +15,7 @@
 #include "MainComponent.h"
 
 #include "AkiDelayConstants.hpp"
+#include "AkiDelayPresetUpgrader.hpp"
 #include "CPPFile.hpp"
 #include "ColorProfile.hpp"
 #include "FrameBuffer.hpp"
@@ -31,21 +32,20 @@
 MainComponent::MainComponent() :
 	sAudioBuffer(),
 	fakeStorageDevice( Sram_23K256::SRAM_SIZE * 4 ), // sram size on Gen_FX_SYN boards, with four srams installed
-	akiDelayManager( &fakeStorageDevice ),
+	presetManager( sizeof(AkiDelayPresetHeader), 20, new CPPFile("AkiDelayPresets.spf") ),
+	akiDelayManager( &fakeStorageDevice, &presetManager ),
 	akiDelayUiManager( Smoll_data, AkiDelayMainImage_data, AkiDelayHiddenImage_data ),
 	sampleRateConverter( 96000, SAMPLE_RATE, 512 ),
 	writer(),
-	delayTimeSldr(),
-	delayTimeLbl(),
-	feedbackSldr(),
-	feedbackLbl(),
-	filtFreqSldr(),
-	filtFreqLbl(),
+	effect1Sldr(),
+	effect1Lbl(),
+	effect2Sldr(),
+	effect2Lbl(),
+	effect3Sldr(),
+	effect3Lbl(),
+	effect1Btn( "Effect 1" ),
+	effect2Btn( "Effect 2" ),
 	audioSettingsBtn( "Audio Settings" ),
-	prevPresetBtn( "Prev Preset" ),
-	presetNumLbl( "Preset Number", "1" ),
-	nextPresetBtn( "Next Preset" ),
-	writePresetBtn( "Write Preset" ),
 	audioSettingsComponent( deviceManager, 2, 2, &audioSettingsBtn ),
 	screenRep( juce::Image::RGB, 256, 128, true ) // this is actually double the size so we can actually see it
 {
@@ -68,48 +68,49 @@ MainComponent::MainComponent() :
 	deviceManager.initialise( 2, 2, 0, true, juce::String(), &deviceSetup );
 
 	// adding all child components
-	addAndMakeVisible( delayTimeSldr );
+	addAndMakeVisible( effect1Sldr );
 	float maxDelayTime = static_cast<float>((Sram_23K256::SRAM_SIZE * 4)) / 2.0f / SAMPLE_RATE;
-	delayTimeSldr.setRange( 0, maxDelayTime );
-	delayTimeSldr.setTextValueSuffix( "Seconds" );
-	delayTimeSldr.addListener( this );
-	addAndMakeVisible( delayTimeLbl );
-	delayTimeLbl.setText( "Delay Time", juce::dontSendNotification );
-	delayTimeLbl.attachToComponent( &delayTimeSldr, true );
+	effect1Sldr.setRange( 0, maxDelayTime );
+	effect1Sldr.setTextValueSuffix( "Seconds" );
+	effect1Sldr.addListener( this );
+	addAndMakeVisible( effect1Lbl );
+	effect1Lbl.setText( "Delay Time", juce::dontSendNotification );
+	effect1Lbl.attachToComponent( &effect1Sldr, true );
 
-	addAndMakeVisible( feedbackSldr );
-	feedbackSldr.setRange( 0, 99 );
-	feedbackSldr.setTextValueSuffix( "%" );
-	feedbackSldr.addListener( this );
-	addAndMakeVisible( feedbackLbl );
-	feedbackLbl.setText( "Feedback", juce::dontSendNotification );
-	feedbackLbl.attachToComponent( &feedbackSldr, true );
+	addAndMakeVisible( effect2Sldr );
+	effect2Sldr.setRange( 0, 99 );
+	effect2Sldr.setTextValueSuffix( "%" );
+	effect2Sldr.addListener( this );
+	addAndMakeVisible( effect2Lbl );
+	effect2Lbl.setText( "Feedback", juce::dontSendNotification );
+	effect2Lbl.attachToComponent( &effect2Sldr, true );
 
-	addAndMakeVisible( filtFreqSldr );
-	filtFreqSldr.setRange( 1, 20000 );
-	filtFreqSldr.setTextValueSuffix( "Hz" );
-	filtFreqSldr.addListener( this );
-	addAndMakeVisible( filtFreqLbl );
-	filtFreqLbl.setText( "LPF Freq", juce::dontSendNotification );
-	filtFreqLbl.attachToComponent( &filtFreqSldr, true );
+	addAndMakeVisible( effect3Sldr );
+	effect3Sldr.setRange( 1, 20000 );
+	effect3Sldr.setTextValueSuffix( "Hz" );
+	effect3Sldr.setValue( 19999 );
+	effect3Sldr.addListener( this );
+	addAndMakeVisible( effect3Lbl );
+	effect3Lbl.setText( "LPF Freq", juce::dontSendNotification );
+	effect3Lbl.attachToComponent( &effect3Sldr, true );
+
+	addAndMakeVisible( effect1Btn );
+	effect1Btn.addListener( this );
+
+	addAndMakeVisible( effect2Btn );
+	effect2Btn.addListener( this );
 
 	addAndMakeVisible( audioSettingsBtn );
 	audioSettingsBtn.addListener( this );
 
-	addAndMakeVisible( prevPresetBtn );
-	prevPresetBtn.addListener( this );
-
-	addAndMakeVisible( presetNumLbl );
-
-	addAndMakeVisible( nextPresetBtn );
-	nextPresetBtn.addListener( this );
-
-	addAndMakeVisible( writePresetBtn );
-	writePresetBtn.addListener( this );
-
 	// Make sure you set the size of the component after
 	// you add any child components.
 	setSize( 800, 600 );
+
+	// upgrade presets if necessary
+	AkiDelayState initPreset = { 0.0f, 0.0f, 20000.0f };
+	AkiDelayPresetUpgrader presetUpgrader( initPreset, akiDelayManager.getPresetHeader() );
+	presetManager.upgradePresets( &presetUpgrader );
 
 	// start timer for fake loading
 	this->startTimer( 33 );
@@ -131,6 +132,22 @@ MainComponent::~MainComponent()
 
 void MainComponent::timerCallback()
 {
+	akiDelayUiManager.processEffect1Btn( effect1Btn.isDown() );
+	akiDelayUiManager.processEffect2Btn( effect2Btn.isDown() );
+
+	double effect1Val = effect1Sldr.getValue();
+	float effect1Percentage = ( effect1Sldr.getValue() - effect1Sldr.getMinimum() )
+					/ ( effect1Sldr.getMaximum() - effect1Sldr.getMinimum() );
+	double effect2Val = effect2Sldr.getValue();
+	float effect2Percentage = ( effect2Sldr.getValue() - effect2Sldr.getMinimum() )
+					/ ( effect2Sldr.getMaximum() - effect2Sldr.getMinimum() );
+	double effect3Val = effect3Sldr.getValue();
+	float effect3Percentage = ( effect3Sldr.getValue() - effect3Sldr.getMinimum() )
+					/ ( effect3Sldr.getMaximum() - effect3Sldr.getMinimum() );
+
+	IPotEventListener::PublishEvent( PotEvent(effect1Percentage, static_cast<unsigned int>(POT_CHANNEL::EFFECT1)) );
+	IPotEventListener::PublishEvent( PotEvent(effect2Percentage, static_cast<unsigned int>(POT_CHANNEL::EFFECT2)) );
+	IPotEventListener::PublishEvent( PotEvent(effect3Percentage, static_cast<unsigned int>(POT_CHANNEL::EFFECT3)) );
 }
 
 //==============================================================================
@@ -225,35 +242,67 @@ void MainComponent::resized()
 	// If you add any child components, this is where you should
 	// update their positions.
 	int sliderLeft = 120;
-	delayTimeSldr.setBounds 	(sliderLeft, 20, getWidth() - sliderLeft - 10, 20);
-	feedbackSldr.setBounds 		(sliderLeft, 60, getWidth() - sliderLeft - 10, 20);
-	filtFreqSldr.setBounds 		(sliderLeft, 100, getWidth() - sliderLeft - 10, 20);
+	effect1Sldr.setBounds 		(sliderLeft, 20, getWidth() - sliderLeft - 10, 20);
+	effect2Sldr.setBounds 		(sliderLeft, 60, getWidth() - sliderLeft - 10, 20);
+	effect3Sldr.setBounds 		(sliderLeft, 100, getWidth() - sliderLeft - 10, 20);
+	effect1Btn.setBounds      	(sliderLeft, 300, (getWidth() / 2) - sliderLeft - 10, 20);
+	effect2Btn.setBounds      	(sliderLeft, 340, (getWidth() / 2) - sliderLeft - 10, 20);
 	audioSettingsBtn.setBounds 	(sliderLeft, 950, getWidth() - sliderLeft - 10, 20);
-	prevPresetBtn.setBounds 	(sliderLeft + (getWidth() / 5) * 1, 1010, ((getWidth() - sliderLeft - 10) / 5), 20);
-	presetNumLbl.setBounds 		(sliderLeft + (getWidth() / 5) * 2, 1010, ((getWidth() - sliderLeft - 10) / 5), 20);
-	nextPresetBtn.setBounds 	((getWidth() / 5) * 3, 1010, ((getWidth() - sliderLeft - 10) / 5), 20);
-	writePresetBtn.setBounds 	((getWidth() / 5) * 4, 1010, ((getWidth() - sliderLeft - 10) / 5), 20);
+}
+
+bool MainComponent::keyPressed (const juce::KeyPress& k)
+{
+	// for holding both buttons down at the same time
+	if ( k.getTextCharacter() == 'z' )
+	{
+		effect1Btn.setState( juce::Button::ButtonState::buttonDown );
+		effect2Btn.setState( juce::Button::ButtonState::buttonDown );
+	}
+	else if ( k.getTextCharacter() == '9' )
+	{
+		effect1Btn.setState( juce::Button::ButtonState::buttonDown );
+	}
+	else if ( k.getTextCharacter() == '0' )
+	{
+		effect2Btn.setState( juce::Button::ButtonState::buttonDown );
+	}
+
+	return true;
+}
+
+bool MainComponent::keyStateChanged (bool isKeyDown)
+{
+	if ( ! isKeyDown ) // if a key has been released
+	{
+		effect1Btn.setState( juce::Button::ButtonState::buttonNormal );
+		effect2Btn.setState( juce::Button::ButtonState::buttonNormal );
+	}
+
+	return true;
 }
 
 void MainComponent::sliderValueChanged (juce::Slider* slider)
 {
 	try
 	{
+		// now polled in timer callback
+		/*
 		double val = slider->getValue();
 		float percentage = (slider->getValue() - slider->getMinimum()) / (slider->getMaximum() - slider->getMinimum());
 
-		if (slider == &delayTimeSldr)
+		if (slider == &effect1Sldr)
 		{
-			IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::DELAY_TIME)) );
+			IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::EFFECT1)) );
 		}
-		else if (slider == &feedbackSldr)
+		else if (slider == &effect2Sldr)
 		{
-			IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::FEEDBACK)) );
+			IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::EFFECT2)) );
 		}
-		else if (slider == &filtFreqSldr)
+		else if (slider == &effect3Sldr)
 		{
-			IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::FILT_FREQ)) );
+			IPotEventListener::PublishEvent( PotEvent(percentage, static_cast<unsigned int>(POT_CHANNEL::EFFECT3)) );
 		}
+		*/
 	}
 	catch (std::exception& e)
 	{
@@ -265,27 +314,6 @@ void MainComponent::buttonClicked (juce::Button* button)
 {
 	try
 	{
-		// TODO reimplement these
-		/*
-		if (button == &prevPresetBtn)
-		{
-			uiSim.processPrevPresetBtn( true ); // pressed
-			uiSim.processPrevPresetBtn( false ); // released
-			uiSim.processPrevPresetBtn( false ); // floating
-		}
-		else if (button == &nextPresetBtn)
-		{
-			uiSim.processNextPresetBtn( true ); // pressed
-			uiSim.processNextPresetBtn( false ); // released
-			uiSim.processNextPresetBtn( false ); // floating
-		}
-		else if (button == &writePresetBtn)
-		{
-			uiSim.processWritePresetBtn( true ); // pressed
-			uiSim.processWritePresetBtn( false ); // released
-			uiSim.processWritePresetBtn( false ); // floating
-		}
-		*/
 	}
 	catch (std::exception& e)
 	{
@@ -297,7 +325,6 @@ void MainComponent::updateToggleState (juce::Button* button)
 {
 	try
 	{
-		bool isPressed = button->getToggleState();
 	}
 	catch (std::exception& e)
 	{
