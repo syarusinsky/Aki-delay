@@ -230,8 +230,8 @@ int main(void)
 	// disable the unused pins
 	disableUnusedPins();
 
-	// i2c setup (72MHz source 1000KHz clock 0x00A00D26)
-	LLPD::i2c_master_setup( I2C_NUM::I2C_2, 0x00A00D26 );
+	// i2c setup (72MHz source 100KHz clock 0x00901D23)
+	LLPD::i2c_master_setup( I2C_NUM::I2C_2, 0x00901D23 );
 	LLPD::usart_log( USART_NUM::USART_3, "I2C initialized..." );
 
 	// spi init (36MHz SPI2 source 18MHz clock)
