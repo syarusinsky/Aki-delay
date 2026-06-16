@@ -9,18 +9,33 @@
 #include "AkiDelayManager.hpp"
 #include "IEventListener.hpp"
 
+enum class AkiDelayPresetEventTypeEnum
+{
+	LOAD_PRESET,
+	SEND_PRESET_REQUEST,
+	SEND_ALL_PRESETS_REQUEST,
+	ACCEPT_PRESET,
+	ACCEPT_ALL_PRESETS,
+	DENY_PRESET,
+	FINISHED_SENDING_OR_RECEIVING_PRESETS,
+};
+
 class AkiDelayPresetEvent : public IEvent
 {
 	public:
-		AkiDelayPresetEvent (const AkiDelayState& preset, unsigned int presetNum, unsigned int channel);
+		AkiDelayPresetEvent (const AkiDelayState& preset, unsigned int presetNum, unsigned int channel,
+					const AkiDelayPresetEventTypeEnum& type = AkiDelayPresetEventTypeEnum::LOAD_PRESET);
 		~AkiDelayPresetEvent() override;
 
 		AkiDelayState getPreset() const { return m_Preset; }
 		unsigned int getPresetNum() const { return m_PresetNum; }
 
+		AkiDelayPresetEventTypeEnum getType() const { return m_Type; }
+
 	private:
-		AkiDelayState m_Preset;
-		unsigned int m_PresetNum;
+		AkiDelayState 			m_Preset;
+		unsigned int 			m_PresetNum;
+		AkiDelayPresetEventTypeEnum 	m_Type;
 };
 
 class IAkiDelayPresetEventListener : public IEventListener

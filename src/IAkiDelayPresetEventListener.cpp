@@ -4,10 +4,11 @@
 EventDispatcher<IAkiDelayPresetEventListener, AkiDelayPresetEvent,
 		&IAkiDelayPresetEventListener::onAkiDelayPresetChangedEvent> IAkiDelayPresetEventListener::m_EventDispatcher;
 
-AkiDelayPresetEvent::AkiDelayPresetEvent (const AkiDelayState& preset, unsigned int presetNum, unsigned int channel) :
+AkiDelayPresetEvent::AkiDelayPresetEvent (const AkiDelayState& preset, unsigned int presetNum, unsigned int channel, const AkiDelayPresetEventTypeEnum& type) :
 	IEvent( channel ),
 	m_Preset( preset ),
-	m_PresetNum( presetNum )
+	m_PresetNum( presetNum ),
+	m_Type( type )
 {
 }
 

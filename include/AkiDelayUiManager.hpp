@@ -13,6 +13,10 @@
 enum class AKIDELAY_MENUS : unsigned int
 {
 	MAIN,
+	SENDER,
+	RECEIVER,
+	SENDING,
+	RECEIVING,
 	HIDDEN
 };
 
@@ -35,6 +39,8 @@ class AkiDelayUiManager : public Surface, public IPotEventListener, public IButt
 
 		void processEffect1Btn (bool pressed);
 		void processEffect2Btn (bool pressed);
+
+		void tickForEffectBtn2Hold (float microseconds);
 
 	private:
 		Font* 		m_Font;
@@ -71,9 +77,17 @@ class AkiDelayUiManager : public Surface, public IPotEventListener, public IButt
 		float 		m_Pot2StabilizerCachedPer;
 		float 		m_Pot3StabilizerCachedPer;
 
+		float 		m_TickForEffectBtn2Hold; // in microseconds
+		constexpr static float m_TickForEffectBtn2HoldMax = 1000000.0f; // need to hold effect button 2 for 1 second to get to preset sender menu
+
 		void lockAllPots();
 		bool hasBrokenLock (bool& potLockedVal, float& potCachedVal, float newPotVal);
 
+		void switchToMainMenu();
+		void switchToSenderMenu();
+		void switchToReceiverMenu(bool receiveAllPresets);
+		void switchToSendingMenu (bool sendAllPresets);
+		void switchToReceivingMenu (bool receiveAllPresets);
 		void switchToHiddenMenu();
 		void updateButtonState (BUTTON_STATE& buttonState, bool pressed);
 		void updateParameterString (float value, const POT_CHANNEL& channel);

@@ -34,7 +34,8 @@ AkiDelayUiManager::AkiDelayUiManager (uint8_t* fontData, uint8_t* mainImageData,
 	m_Pot3StabilizerIndex( 0 ),
 	m_Pot1StabilizerValue( 0.0f ),
 	m_Pot2StabilizerValue( 0.0f ),
-	m_Pot3StabilizerValue( 1.0f )
+	m_Pot3StabilizerValue( 1.0f ),
+	m_TickForEffectBtn2Hold( 0.0f )
 {
 	m_Graphics->setFont( m_Font );
 
@@ -66,9 +67,36 @@ void AkiDelayUiManager::draw()
 
 void AkiDelayUiManager::onAkiDelayPresetChangedEvent (const AkiDelayPresetEvent& presetEvent)
 {
-	this->lockAllPots();
+	if ( presetEvent.getType() == AkiDelayPresetEventTypeEnum::LOAD_PRESET )
+	{
+		this->lockAllPots();
 
-	this->updatePresetString( presetEvent.getPresetNum() + 1 );
+		this->updatePresetString( presetEvent.getPresetNum() + 1 );
+	}
+	else if ( presetEvent.getType() == AkiDelayPresetEventTypeEnum::SEND_PRESET_REQUEST )
+	{
+		this->switchToReceiverMenu( false );
+	}
+	else if ( presetEvent.getType() == AkiDelayPresetEventTypeEnum::SEND_ALL_PRESETS_REQUEST )
+	{
+		this->switchToReceiverMenu( true );
+	}
+	else if ( presetEvent.getType() == AkiDelayPresetEventTypeEnum::ACCEPT_PRESET )
+	{
+		this->switchToReceivingMenu( false );
+	}
+	else if ( presetEvent.getType() == AkiDelayPresetEventTypeEnum::ACCEPT_ALL_PRESETS )
+	{
+		this->switchToReceivingMenu( true );
+	}
+	else if ( presetEvent.getType() == AkiDelayPresetEventTypeEnum::DENY_PRESET )
+	{
+		this->switchToMainMenu();
+	}
+	else if ( presetEvent.getType() == AkiDelayPresetEventTypeEnum::FINISHED_SENDING_OR_RECEIVING_PRESETS )
+	{
+		this->switchToMainMenu();
+	}
 }
 
 void AkiDelayUiManager::onPotEvent (const PotEvent& potEvent)
@@ -274,6 +302,101 @@ void AkiDelayUiManager::processEffect2Btn (bool pressed)
 	}
 }
 
+void AkiDelayUiManager::switchToMainMenu()
+{
+	m_CurrentMenu = AKIDELAY_MENUS::MAIN;
+
+	this->draw();
+}
+
+void AkiDelayUiManager::switchToSenderMenu()
+{
+	m_CurrentMenu = AKIDELAY_MENUS::SENDER;
+
+	m_Graphics->setColor( false );
+	m_Graphics->fill();
+	m_Graphics->setColor( true );
+
+	m_Graphics->drawText( 0.0f, 0.1f,  "effect 1 btn:", 1.0f );
+	m_Graphics->drawText( 0.0f, 0.25f, "  send this preset", 1.0f );
+	m_Graphics->drawText( 0.0f, 0.4f,  "effect 2 btn:", 1.0f );
+	m_Graphics->drawText( 0.0f, 0.55f, "  exit", 1.0f );
+	m_Graphics->drawText( 0.0f, 0.7f,  "both btns:", 1.0f );
+	m_Graphics->drawText( 0.0f, 0.85f, "  send all presets", 1.0f );
+
+	IAkiDelayLCDRefreshEventListener::PublishEvent( AkiDelayLCDRefreshEvent(0, 0, m_FrameBuffer->getWidth(), m_FrameBuffer->getHeight(), 0) );
+}
+
+void AkiDelayUiManager::switchToReceiverMenu (bool receiveAllPresets)
+{
+	m_CurrentMenu = AKIDELAY_MENUS::RECEIVER;
+
+	m_Graphics->setColor( false );
+	m_Graphics->fill();
+	m_Graphics->setColor( true );
+
+	if ( ! receiveAllPresets )
+	{
+		m_Graphics->drawText( 0.0f, 0.1f,  "receiving preset!", 1.0f );
+		m_Graphics->drawText( 0.0f, 0.25f, "  this will over-", 1.0f );
+		m_Graphics->drawText( 0.0f, 0.4f,  "  write the ", 1.0f );
+		m_Graphics->drawText( 0.0f, 0.55f, "  current preset", 1.0f );
+		m_Graphics->drawText( 0.0f, 0.7f,  "effect 1: accept", 1.0f );
+		m_Graphics->drawText( 0.0f, 0.85f, "effect 2: deny", 1.0f );
+	}
+	else // receiving all presets
+	{
+		m_Graphics->drawText( 0.0f, 0.1f,  "receiving presets!", 1.0f );
+		m_Graphics->drawText( 0.0f, 0.25f, "  this will over-", 1.0f );
+		m_Graphics->drawText( 0.0f, 0.4f,  "  write all ", 1.0f );
+		m_Graphics->drawText( 0.0f, 0.55f, "  presets", 1.0f );
+		m_Graphics->drawText( 0.0f, 0.7f,  "effect 1: accept", 1.0f );
+		m_Graphics->drawText( 0.0f, 0.85f, "effect 2: deny", 1.0f );
+	}
+
+	IAkiDelayLCDRefreshEventListener::PublishEvent( AkiDelayLCDRefreshEvent(0, 0, m_FrameBuffer->getWidth(), m_FrameBuffer->getHeight(), 0) );
+}
+
+void AkiDelayUiManager::switchToSendingMenu (bool sendAllPresets)
+{
+	m_CurrentMenu = AKIDELAY_MENUS::SENDING;
+
+	m_Graphics->setColor( false );
+	m_Graphics->fill();
+	m_Graphics->setColor( true );
+
+	if ( ! sendAllPresets )
+	{
+		m_Graphics->drawText( 0.0f, 0.4f,  " sending preset", 1.0f );
+	}
+	else // sending all presets
+	{
+		m_Graphics->drawText( 0.0f, 0.4f,  " sending presets", 1.0f );
+	}
+
+	IAkiDelayLCDRefreshEventListener::PublishEvent( AkiDelayLCDRefreshEvent(0, 0, m_FrameBuffer->getWidth(), m_FrameBuffer->getHeight(), 0) );
+}
+
+void AkiDelayUiManager::switchToReceivingMenu (bool receiveAllPresets)
+{
+	m_CurrentMenu = AKIDELAY_MENUS::SENDING;
+
+	m_Graphics->setColor( false );
+	m_Graphics->fill();
+	m_Graphics->setColor( true );
+
+	if ( ! receiveAllPresets )
+	{
+		m_Graphics->drawText( 0.05f, 0.4f,  "receiving preset", 1.0f );
+	}
+	else // sending all presets
+	{
+		m_Graphics->drawText( 0.05f, 0.4f,  "receiving presets", 1.0f );
+	}
+
+	IAkiDelayLCDRefreshEventListener::PublishEvent( AkiDelayLCDRefreshEvent(0, 0, m_FrameBuffer->getWidth(), m_FrameBuffer->getHeight(), 0) );
+}
+
 void AkiDelayUiManager::switchToHiddenMenu()
 {
 	m_CurrentMenu = AKIDELAY_MENUS::HIDDEN;
@@ -288,17 +411,54 @@ void AkiDelayUiManager::switchToHiddenMenu()
 
 void AkiDelayUiManager::handleEffect1SinglePress()
 {
-	IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(0.0f, static_cast<unsigned int>(PARAM_CHANNEL::PREV_PRESET)) );
+	if ( m_CurrentMenu == AKIDELAY_MENUS::MAIN )
+	{
+		IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(0.0f, static_cast<unsigned int>(PARAM_CHANNEL::PREV_PRESET)) );
+	}
+	else if ( m_CurrentMenu == AKIDELAY_MENUS::SENDER )
+	{
+		IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(0.0f, static_cast<unsigned int>(PARAM_CHANNEL::SEND_PRESET)) );
+
+		this->switchToSendingMenu( false );
+	}
+	else if ( m_CurrentMenu == AKIDELAY_MENUS::RECEIVER )
+	{
+		IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(0.0f, static_cast<unsigned int>(PARAM_CHANNEL::ACCEPT_PRESET)) );
+	}
 }
 
 void AkiDelayUiManager::handleEffect2SinglePress()
 {
-	IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(0.0f, static_cast<unsigned int>(PARAM_CHANNEL::NEXT_PRESET)) );
+	if ( m_CurrentMenu == AKIDELAY_MENUS::MAIN && m_TickForEffectBtn2Hold >= m_TickForEffectBtn2HoldMax )
+	{
+		this->switchToSenderMenu();
+	}
+	else if ( m_CurrentMenu == AKIDELAY_MENUS::MAIN )
+	{
+		IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(0.0f, static_cast<unsigned int>(PARAM_CHANNEL::NEXT_PRESET)) );
+	}
+	else if ( m_CurrentMenu == AKIDELAY_MENUS::SENDER )
+	{
+		this->switchToMainMenu();
+	}
+	else if ( m_CurrentMenu == AKIDELAY_MENUS::RECEIVER )
+	{
+		IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(0.0f, static_cast<unsigned int>(PARAM_CHANNEL::DENY_PRESET)) );
+	}
 }
 
 void AkiDelayUiManager::handleDoubleButtonPress()
 {
-	IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(0.0f, static_cast<unsigned int>(PARAM_CHANNEL::WRITE_PRESET)) );
+	if ( m_CurrentMenu == AKIDELAY_MENUS::MAIN )
+	{
+		IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(0.0f, static_cast<unsigned int>(PARAM_CHANNEL::WRITE_PRESET)) );
+	}
+	else if ( m_CurrentMenu == AKIDELAY_MENUS::SENDER )
+	{
+		IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(0.0f, static_cast<unsigned int>(PARAM_CHANNEL::SEND_ALL_PRESETS)) );
+
+		this->switchToSendingMenu( true );
+	}
 }
 
 void AkiDelayUiManager::updatePresetString (const unsigned int presetNum)
@@ -409,6 +569,18 @@ void AkiDelayUiManager::updateParameterString (float value, const POT_CHANNEL& c
 		m_Graphics->drawText( xStart, yStart + 0.04f, bufferFinal, 1.0f );
 	}
 	*/
+}
+
+void AkiDelayUiManager::tickForEffectBtn2Hold (float microseconds)
+{
+	if ( m_Effect2BtnState == BUTTON_STATE::HELD )
+	{
+		m_TickForEffectBtn2Hold += microseconds;
+	}
+	else
+	{
+		m_TickForEffectBtn2Hold = 0;
+	}
 }
 
 void AkiDelayUiManager::intToCString (int val, char* buffer, unsigned int bufferLen)

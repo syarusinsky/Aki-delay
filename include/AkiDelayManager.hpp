@@ -7,10 +7,12 @@
 #include "OnePoleFilter.hpp"
 #include "SoftClipper.hpp"
 #include "IAkiDelayParameterEventListener.hpp"
+#include "ISalSysexEventListener.hpp"
 #include "NoiseGate.hpp"
 
 #include <stdint.h>
 
+class MidiHandler;
 class PresetManager;
 
 // the AkiDelayState struct makes saving states for presets easier, since it's easily serializable
@@ -41,10 +43,10 @@ struct AkiDelayPresetHeader
 	}
 };
 
-class AkiDelayManager : public IBufferCallback<uint16_t>, public IAkiDelayParameterEventListener
+class AkiDelayManager : public IBufferCallback<uint16_t>, public IAkiDelayParameterEventListener, public ISalSysexEventListener
 {
 	public:
-		AkiDelayManager (IStorageMedia* delayBufferStorage, PresetManager* presetManager);
+		AkiDelayManager (IStorageMedia* delayBufferStorage, MidiHandler* midiHandler, PresetManager* presetManager);
 		~AkiDelayManager() override;
 
 		void setDelayTime (float delayTime); // delayTime should be in seconds
@@ -60,10 +62,12 @@ class AkiDelayManager : public IBufferCallback<uint16_t>, public IAkiDelayParame
 		void call (uint16_t* writeBuffer) override;
 
 		void onAkiDelayParameterEvent (const AkiDelayParameterEvent& paramEvent) override;
+		void onSalSysexEvent( const SalSysexEvent& salSysexEvent) override;
 
 	private:
 		IStorageMedia* 		m_StorageMedia; // where delay buffer sits
 
+		MidiHandler* 		m_MidiHandler;
 		PresetManager* 		m_PresetManager;
 		AkiDelayPresetHeader 	m_PresetHeader;
 
@@ -80,6 +84,16 @@ class AkiDelayManager : public IBufferCallback<uint16_t>, public IAkiDelayParame
 		NoiseGate<int16_t> 	m_NoiseGate;
 		OnePoleFilter<float> 	m_Filt;
 		SoftClipper<uint16_t> 	m_SoftClipper;
+
+		AkiDelayState 		m_PresetToSendOrReceive;
+		unsigned int 		m_PresetToSendOrReceiveNum;
+		uint8_t 		m_DevId;
+		SalSysexEvent 		m_PrevSalSysexEvent;
+		bool 			m_SendingOrReceivingAllPresets = false;
+		unsigned int 		m_NibbleIndex = 0;
+
+		uint8_t generateRandomDevId();
+		uint16_t getNumNibblesInPreset();
 };
 
 #endif

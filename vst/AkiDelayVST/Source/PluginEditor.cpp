@@ -75,6 +75,9 @@ AkiDelayVSTAudioProcessorEditor::~AkiDelayVSTAudioProcessorEditor()
 void AkiDelayVSTAudioProcessorEditor::timerCallback()
 {
     AkiDelayUiManager& akiDelayUiManager = audioProcessor.getAkiDelayUiManager();
+
+    akiDelayUiManager.tickForEffectBtn2Hold( 33000.0f );
+
     akiDelayUiManager.processEffect1Btn( effect1Btn.isDown() );
 
     // since the effect button holding logic requires the sequencing of the button events to be in order, we need to dispatch here as well

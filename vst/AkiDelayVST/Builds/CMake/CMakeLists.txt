@@ -43,8 +43,8 @@ juce_add_plugin(AkiDelayVST
     # ICON_SMALL ...
     # COMPANY_NAME ...                          # Specify the name of the plugin's author
     IS_SYNTH FALSE                       # Is this a synth or an effect?
-    NEEDS_MIDI_INPUT FALSE               # Does the plugin need midi input?
-    NEEDS_MIDI_OUTPUT FALSE              # Does the plugin need midi output?
+    NEEDS_MIDI_INPUT TRUE               # Does the plugin need midi input?
+    NEEDS_MIDI_OUTPUT TRUE              # Does the plugin need midi output?
     IS_MIDI_EFFECT FALSE                 # Is this plugin a MIDI effect?
     EDITOR_WANTS_KEYBOARD_FOCUS FALSE    # Does the editor need keyboard focus?
     COPY_PLUGIN_AFTER_BUILD FALSE        # Should the plugin be installed to a default location after building?
@@ -82,8 +82,13 @@ target_sources(AkiDelayVST
         ../../../../lib/SAL/src/SampleRateConverter.cpp
         ../../../../lib/SAL/src/AudioBuffer.cpp
         ../../../../lib/SAL/src/PresetManager.cpp
+	../../../../lib/SAL/src/MidiHandler.cpp
         ../../../../lib/SAL/src/IPotEventListener.cpp
         ../../../../lib/SAL/src/IButtonEventListener.cpp
+	../../../../lib/SAL/src/IMidiEventListener.cpp
+        ../../../../lib/SAL/src/IKeyEventListener.cpp
+        ../../../../lib/SAL/src/IPitchEventListener.cpp
+	../../../../lib/SAL/src/ISalSysexEventListener.cpp
         ../../../../lib/SAL/src/OnePoleFilter.cpp
         ../../../../lib/SAL/src/NoiseGate.cpp
         ../../../../lib/SAL/src/SoftClipper.cpp

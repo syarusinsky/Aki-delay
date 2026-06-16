@@ -19,12 +19,14 @@
 #include "AkiDelayHiddenImage.h"
 #include "Smoll.h"
 
+
 //==============================================================================
 AkiDelayVSTAudioProcessor::AkiDelayVSTAudioProcessor()
     : sAudioBuffer(),
       fakeStorageDevice( Sram_23K256::SRAM_SIZE * 4 ), // sram size on Gen_FX_SYN boards, with four srams installed
       presetManager( sizeof(AkiDelayPresetHeader), 20, new CPPFile("AkiDelayPresets.spf") ),
-      akiDelayManager( &fakeStorageDevice, &presetManager ),
+      midiHandler(),
+      akiDelayManager( &fakeStorageDevice, &midiHandler, &presetManager ),
       akiDelayUiManager( Smoll_data, AkiDelayMainImage_data, AkiDelayHiddenImage_data ),
       sampleRateConverter( 96000, SAMPLE_RATE, 512 ),
       undoManager(),
@@ -226,6 +228,48 @@ void AkiDelayVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
         }
     }
 
+    // handle midi input
+    // TODO remove after testing
+    // if ( midiMessages.getNumEvents() > 0 )
+    // {
+    //     std::cout << "STARTING MIDI IN PROCESSING ----------------" << std::endl;
+    // }
+    for ( const auto& messageMetaData : midiMessages )
+    {
+        // midi input
+        const auto& message = messageMetaData.getMessage();
+        // TODO remove after testing
+        // std::cout << "MIDI IN: " <<  message.getDescription() << std::endl;
+        for ( int byte = 0; byte < message.getRawDataSize(); byte++ )
+        {
+            midiHandler.processByte( message.getRawData()[byte] );
+        }
+
+        midiHandler.dispatchEvents();
+    }
+
+    // handle midi output
+    // TODO remove after testing
+    // static bool startedHandling = false;
+    // startedHandling = true;
+    MidiEvent* outputMessage = midiHandler.nextOutputMidiMessage();
+
+    while ( outputMessage != nullptr )
+    {
+        // TODO remove after testing
+        // if ( startedHandling == true )
+        // {
+        //     std::cout << "STARTING MIDI OUT PROCESSING ----------------" << std::endl;
+        //     startedHandling = false;
+        // }
+        juce::MidiMessage juceMsg( outputMessage->getRawData(), outputMessage->getNumBytes() );
+        // TODO remove after testing
+        // std::cout << "MIDI OUT: " << juceMsg.getDescription() << std::endl;
+        midiMessages.addEvent( juceMsg, 0 );
+
+        outputMessage = midiHandler.nextOutputMidiMessage();
+    }
+
     this->dispatchEventsForIds( processorId, processorEditorId );
 }
 
@@ -295,6 +339,7 @@ void AkiDelayVSTAudioProcessor::dispatchEventsForIds (const unsigned int process
     // be called before IAkiDelayLCDRefreshEventListener. The onus is on the user to sequence these correctly in the most performant way possible.
     EventDispatcher<IPotEventListener, PotEvent, &IPotEventListener::onPotEvent>::juceDispatchQueuedEvents( processorId, processorEditorId );
     EventDispatcher<IButtonEventListener, ButtonEvent, &IButtonEventListener::onButtonEvent>::juceDispatchQueuedEvents( processorId, processorEditorId );
+    EventDispatcher<ISalSysexEventListener, SalSysexEvent, &ISalSysexEventListener::onSalSysexEvent>::juceDispatchQueuedEvents( processorId, processorEditorId );
     EventDispatcher<IAkiDelayParameterEventListener, AkiDelayParameterEvent,
                     &IAkiDelayParameterEventListener::onAkiDelayParameterEvent>::juceDispatchQueuedEvents( processorId, processorEditorId );
     EventDispatcher<IAkiDelayPresetEventListener, AkiDelayPresetEvent,

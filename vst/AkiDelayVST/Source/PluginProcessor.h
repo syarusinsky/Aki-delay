@@ -16,6 +16,7 @@
 #include "SampleRateConverter.hpp"
 #include "SRAM_23K256.hpp"
 #include "PresetManager.hpp"
+#include "MidiHandler.hpp"
 
 #include <JuceHeader.h>
 
@@ -82,6 +83,7 @@ private:
     FakeStorageDevice fakeStorageDevice;
 
     PresetManager presetManager;
+    MidiHandler midiHandler;
 
     AkiDelayManager akiDelayManager;
     AkiDelayUiManager akiDelayUiManager;
