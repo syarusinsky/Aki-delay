@@ -230,41 +230,54 @@ void AkiDelayVSTAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 
     // handle midi input
     // TODO remove after testing
-    // if ( midiMessages.getNumEvents() > 0 )
-    // {
-    //     std::cout << "STARTING MIDI IN PROCESSING ----------------" << std::endl;
-    // }
+    if ( midiMessages.getNumEvents() > 0 )
+    {
+        std::cout << "STARTING MIDI IN PROCESSING ----------------" << std::endl;
+    }
     for ( const auto& messageMetaData : midiMessages )
     {
         // midi input
         const auto& message = messageMetaData.getMessage();
-        // TODO remove after testing
-        // std::cout << "MIDI IN: " <<  message.getDescription() << std::endl;
-        for ( int byte = 0; byte < message.getRawDataSize(); byte++ )
+
+        if ( message.getRawData()[0] != 0xF0 )
         {
-            midiHandler.processByte( message.getRawData()[byte] );
+            continue;
         }
 
-        midiHandler.dispatchEvents();
+        if (  message.getRawData()[2] != akiDelayManager.getDevId() ) // if it has the same dev id, it was looped back
+        {
+            // TODO remove after testing
+            std::cout << "   MIDI IN: " <<  message.getDescription() << std::endl;
+            for ( int byte = 0; byte < message.getRawDataSize(); byte++ )
+            {
+                midiHandler.processByte( message.getRawData()[byte] );
+            }
+
+            midiHandler.dispatchEvents();
+        }
+        else
+        {
+            std::cout << "   LOOPED BACK MIDI IN???: " <<  message.getDescription() << std::endl;
+        }
     }
 
     // handle midi output
     // TODO remove after testing
-    // static bool startedHandling = false;
-    // startedHandling = true;
+    static bool startedHandling = false;
+    startedHandling = true;
     MidiEvent* outputMessage = midiHandler.nextOutputMidiMessage();
 
     while ( outputMessage != nullptr )
     {
         // TODO remove after testing
-        // if ( startedHandling == true )
-        // {
-        //     std::cout << "STARTING MIDI OUT PROCESSING ----------------" << std::endl;
-        //     startedHandling = false;
-        // }
+        if ( startedHandling == true )
+        {
+            std::cout << "STARTING MIDI OUT PROCESSING ----------------" << std::endl;
+            startedHandling = false;
+        }
         juce::MidiMessage juceMsg( outputMessage->getRawData(), outputMessage->getNumBytes() );
         // TODO remove after testing
-        // std::cout << "MIDI OUT: " << juceMsg.getDescription() << std::endl;
+        std::cout << "   MIDI OUT: " << juceMsg.getDescription() << std::endl;
         midiMessages.addEvent( juceMsg, 0 );
 
         outputMessage = midiHandler.nextOutputMidiMessage();

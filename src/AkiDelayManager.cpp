@@ -28,7 +28,7 @@ AkiDelayManager::AkiDelayManager (IStorageMedia* delayBufferStorage, MidiHandler
 	m_PresetToSendOrReceive( this->getState() ),
 	m_PresetToSendOrReceiveNum( 0 ),
 	m_DevId( 0 ),
-	m_PrevSalSysexEvent( SalSysexEvent::buildReceivedPresetEvent(0, AKI_DELAY_MODEL_ID, 0, 0, this->getNumNibblesInPreset()) ) // just junk for now, but properly initializing below
+	m_SenderId( 0 )
 {
 	this->bindToAkiDelayParameterEventSystem();
 	this->bindToSalSysexEventSystem();
@@ -311,54 +311,53 @@ void AkiDelayManager::onAkiDelayParameterEvent (const AkiDelayParameterEvent& pa
 						AkiDelayPresetEvent(this->getState(), m_PresetManager->getCurrentPresetNum(), 0) );
 		}
 	}
-	else if ( channelEnum == PARAM_CHANNEL::SEND_PRESET )
+	else if ( channelEnum == PARAM_CHANNEL::SEND_PRESET && m_DevId == 0 && m_SenderId == 0 ) // ensure no preset exchange is taking place
 	{
 		// send this preset
 		m_SendingOrReceivingAllPresets = false;
 		m_NibbleIndex = 0;
 		m_DevId = this->generateRandomDevId(); // use a random id for the sender
+		m_SenderId = 0;
 		const uint16_t numNibblesInPreset = this->getNumNibblesInPreset();
 		SalSysexEvent sendPresetEvent
-			= SalSysexEvent::buildRequestToSendPresetEvent( m_DevId, AKI_DELAY_MODEL_ID, 0x00, m_PresetManager->getCurrentPresetNum(), numNibblesInPreset );
+			= SalSysexEvent::buildRequestToSendPresetEvent( m_DevId, AKI_DELAY_MODEL_ID, m_SenderId, m_PresetManager->getCurrentPresetNum(), numNibblesInPreset );
 		m_MidiHandler->processSalSysexEvent( sendPresetEvent );
 	}
-	else if ( channelEnum == PARAM_CHANNEL::SEND_ALL_PRESETS )
+	else if ( channelEnum == PARAM_CHANNEL::SEND_ALL_PRESETS && m_DevId == 0 && m_SenderId == 0 ) // ensure no preset exchange is taking place
 	{
 		// send all presets
 		m_SendingOrReceivingAllPresets = true;
 		m_NibbleIndex = 0;
 		m_DevId = this->generateRandomDevId(); // use a random id for the sender
+		m_SenderId = 0;
 		const uint16_t numNibblesInPreset = this->getNumNibblesInPreset();
 		SalSysexEvent sendAllPresetsEvent
-			= SalSysexEvent::buildRequestToSendAllPresetsEvent( m_DevId, AKI_DELAY_MODEL_ID, 0x00, 0, numNibblesInPreset );
+			= SalSysexEvent::buildRequestToSendAllPresetsEvent( m_DevId, AKI_DELAY_MODEL_ID, m_SenderId, 0, numNibblesInPreset );
 		m_MidiHandler->processSalSysexEvent( sendAllPresetsEvent );
 	}
 	else if ( channelEnum == PARAM_CHANNEL::ACCEPT_PRESET )
 	{
 		// send accepted message
-		const uint8_t senderId = m_PrevSalSysexEvent.getDevId();
 		const uint16_t numNibblesInPreset = this->getNumNibblesInPreset();
-		const uint8_t requestedPresetNum = m_PrevSalSysexEvent.getPresetNum();
 		SalSysexEvent acceptPresetOrPresetsEvent
-			= SalSysexEvent::buildAcceptPresetOrPresetsEvent( m_DevId, AKI_DELAY_MODEL_ID, senderId, requestedPresetNum, numNibblesInPreset );
+			= SalSysexEvent::buildAcceptPresetOrPresetsEvent( m_DevId, AKI_DELAY_MODEL_ID, m_SenderId, m_RequestedPresetNum, numNibblesInPreset );
 		m_MidiHandler->processSalSysexEvent( acceptPresetOrPresetsEvent );
 
 		// go to receiving page
 		IAkiDelayPresetEventListener::PublishEvent(
-					AkiDelayPresetEvent(this->getState(), requestedPresetNum, 0, AkiDelayPresetEventTypeEnum::ACCEPT_PRESET) );
+					AkiDelayPresetEvent(this->getState(), m_RequestedPresetNum, 0, AkiDelayPresetEventTypeEnum::ACCEPT_PRESET) );
 	}
 	else if ( channelEnum == PARAM_CHANNEL::DENY_PRESET )
 	{
 		// send denied message
-		const uint8_t senderId = m_PrevSalSysexEvent.getDevId();
 		const uint16_t numNibblesInPreset = this->getNumNibblesInPreset();
-		const uint8_t requestedPresetNum = m_PrevSalSysexEvent.getPresetNum();
 		SalSysexEvent denyPresetOrPresetsEvent
-			= SalSysexEvent::buildDenyPresetOrPresetsEvent( m_DevId, AKI_DELAY_MODEL_ID, senderId, requestedPresetNum, numNibblesInPreset );
+			= SalSysexEvent::buildDenyPresetOrPresetsEvent( m_DevId, AKI_DELAY_MODEL_ID, m_SenderId, m_RequestedPresetNum, numNibblesInPreset );
 		m_MidiHandler->processSalSysexEvent( denyPresetOrPresetsEvent );
 
 		// restore dev id and return to main menu
 		m_DevId = 0;
+		m_SenderId = 0;
 		IAkiDelayPresetEventListener::PublishEvent(
 					AkiDelayPresetEvent(this->getState(), m_PresetManager->getCurrentPresetNum(), 0, AkiDelayPresetEventTypeEnum::DENY_PRESET) );
 	}
@@ -366,165 +365,43 @@ void AkiDelayManager::onAkiDelayParameterEvent (const AkiDelayParameterEvent& pa
 
 void AkiDelayManager::onSalSysexEvent (const SalSysexEvent& salSysexEvent)
 {
-	if ( salSysexEvent.getType() == SalSysexTypeEnum::REQUEST_TO_SEND_PRESET )
+	if ( m_DevId == 0 && m_SenderId == 0 ) // if no preset exchange is currently taking place
 	{
-		// send message to ui to give option to accept or deny
-		m_DevId = ( salSysexEvent.getDevId() + 1 ) % 0x7F;
-		m_SendingOrReceivingAllPresets = false;
-		m_NibbleIndex = 0;
-		IAkiDelayPresetEventListener::PublishEvent(
-					AkiDelayPresetEvent(this->getState(), salSysexEvent.getPresetNum(), 0, AkiDelayPresetEventTypeEnum::SEND_PRESET_REQUEST) );
-	}
-	else if ( salSysexEvent.getType() == SalSysexTypeEnum::REQUEST_TO_SEND_ALL_PRESETS )
-	{
-		// send message to ui to give option to accept or deny
-		m_DevId = ( salSysexEvent.getDevId() + 1 ) % 0x7F;
-		m_SendingOrReceivingAllPresets = true;
-		m_NibbleIndex = 0;
-		IAkiDelayPresetEventListener::PublishEvent(
-					AkiDelayPresetEvent(this->getState(), salSysexEvent.getPresetNum(), 0, AkiDelayPresetEventTypeEnum::SEND_ALL_PRESETS_REQUEST) );
-	}
-	else if ( salSysexEvent.getType() == SalSysexTypeEnum::ACCEPT_PRESET_OR_PRESETS )
-	{
-		// send the requested preset
-		// note that since sal has a limited midi message size, multiple preset chunks are usually necessary for a single preset
-		const uint8_t senderId = salSysexEvent.getDevId();
-		const uint16_t numNibblesInPreset = this->getNumNibblesInPreset();
-		const uint8_t requestedPresetNum = salSysexEvent.getPresetNum();
-		if ( m_SendingOrReceivingAllPresets )
+		if ( salSysexEvent.getType() == SalSysexTypeEnum::REQUEST_TO_SEND_PRESET )
 		{
-			m_PresetToSendOrReceive = m_PresetManager->retrievePreset<AkiDelayState>( requestedPresetNum );
-		}
-		else
-		{
-			m_PresetToSendOrReceive = this->getState();
-		}
-		SalSysexEvent sendPresetDataChunkEvent
-			= SalSysexEvent::buildSendPresetDataChunkEvent( m_DevId, AKI_DELAY_MODEL_ID, senderId, requestedPresetNum, numNibblesInPreset );
-
-		// build the chunk
-		while ( m_NibbleIndex < numNibblesInPreset )
-		{
-			uint8_t nibble = reinterpret_cast<uint8_t*>( &m_PresetToSendOrReceive )[ m_NibbleIndex / 2 ];
-			if ( (m_NibbleIndex & 0b1) == 0 )
-			{
-				// this is the high nibble of the byte
-				nibble = nibble >> 4;
-			}
-			else
-			{
-				// this is the low nibble of the byte
-				nibble = nibble & 0b1111;
-			}
-
-			if ( ! sendPresetDataChunkEvent.writeNibble(nibble) )
-			{
-				// unsuccessful write due to midi message being full
-				break;
-			}
-			else
-			{
-				// successful write
-				m_NibbleIndex++;
-			}
-		}
-
-		m_MidiHandler->processSalSysexEvent( sendPresetDataChunkEvent );
-	}
-	else if ( salSysexEvent.getType() == SalSysexTypeEnum::DENY_PRESET_OR_PRESETS )
-	{
-		// reset and return to main page
-		m_DevId = 0;
-		m_SendingOrReceivingAllPresets = false;
-		m_NibbleIndex = 0;
-		IAkiDelayPresetEventListener::PublishEvent(
-					AkiDelayPresetEvent(this->getState(), salSysexEvent.getPresetNum(), 0, AkiDelayPresetEventTypeEnum::DENY_PRESET) );
-	}
-	else if ( salSysexEvent.getType() == SalSysexTypeEnum::SEND_PRESET_DATA_CHUNK )
-	{
-		const uint8_t senderId = salSysexEvent.getDevId();
-		const uint16_t numNibblesInPreset = this->getNumNibblesInPreset();
-		const uint8_t requestedPresetNum = salSysexEvent.getPresetNum();
-		const uint8_t* presetChunkNibbles = salSysexEvent.getPresetChunkNibbles();
-		uint8_t presetChunkNibblesIndex = 0;
-		uint8_t maxNibblesInMessage = salSysexEvent.getMaxNumNibblesInPresetChunkNibbles();
-		uint8_t* presetToSendOrReceivePtr = reinterpret_cast<uint8_t*>( &m_PresetToSendOrReceive );
-
-		// build the preset from the chunk
-		while ( m_NibbleIndex < numNibblesInPreset && presetChunkNibblesIndex < maxNibblesInMessage )
-		{
-			const uint8_t nibble = presetChunkNibbles[presetChunkNibblesIndex];
-			const unsigned int byteIndex = m_NibbleIndex / 2;
-
-			if ( (m_NibbleIndex & 0b1) == 0 )
-			{
-				// this is the high nibble of the byte
-				presetToSendOrReceivePtr[byteIndex] = ( nibble << 4 );
-			}
-			else
-			{
-				// this is the low nibble of the byte
-				presetToSendOrReceivePtr[byteIndex] |= nibble;
-			}
-
-			m_NibbleIndex++;
-			presetChunkNibblesIndex++;
-		}
-
-		if ( m_NibbleIndex == numNibblesInPreset )
-		{
-			// we have the full preset, send the received preset message
-			m_NibbleIndex = 0; // reset since next preset we need to start at the first nibble
-			SalSysexEvent receivedPresetEvent
-				= SalSysexEvent::buildReceivedPresetEvent( m_DevId, AKI_DELAY_MODEL_ID, senderId, requestedPresetNum, numNibblesInPreset );
-
-			// save the preset
-			if ( m_SendingOrReceivingAllPresets && requestedPresetNum != m_PresetManager->getMaxNumPresets() - 1)
-			{
-				m_PresetManager->writePreset<AkiDelayState>( m_PresetToSendOrReceive, requestedPresetNum );
-			}
-			else // receiving only one preset, or finished receiving all presets
-			{
-				const uint8_t presetNumToSaveTo = ( m_SendingOrReceivingAllPresets ) ? requestedPresetNum : m_PresetManager->getCurrentPresetNum();
-				m_PresetManager->writePreset<AkiDelayState>( m_PresetToSendOrReceive, presetNumToSaveTo );
-				this->setState( m_PresetToSendOrReceive );
-
-				// return to main menu
-				IAkiDelayPresetEventListener::PublishEvent(
-					AkiDelayPresetEvent(this->getState(), salSysexEvent.getPresetNum(), 0, AkiDelayPresetEventTypeEnum::FINISHED_SENDING_OR_RECEIVING_PRESETS) );
-			}
-
-			m_MidiHandler->processSalSysexEvent( receivedPresetEvent );
-		}
-		else // we don't have the full preset yet, request another chunk
-		{
-			SalSysexEvent acceptPresetOrPresetsEvent
-				= SalSysexEvent::buildAcceptPresetOrPresetsEvent( m_DevId, AKI_DELAY_MODEL_ID, senderId, requestedPresetNum, numNibblesInPreset );
-
-			m_MidiHandler->processSalSysexEvent( acceptPresetOrPresetsEvent );
-		}
-	}
-	else if ( salSysexEvent.getType() == SalSysexTypeEnum::RECEIVED_PRESET )
-	{
-		// send the next requested preset
-		// note that since sal has a limited midi message size, multiple preset chunks are usually necessary for a single preset
-		const uint8_t senderId = salSysexEvent.getDevId();
-		const uint16_t numNibblesInPreset = this->getNumNibblesInPreset();
-		const uint8_t requestedPresetNum = ( m_SendingOrReceivingAllPresets ) ? salSysexEvent.getPresetNum() + 1 : m_PresetManager->getMaxNumPresets();
-
-		m_NibbleIndex = 0; // reset since next preset we need to start at the first nibble
-
-		if ( requestedPresetNum == m_PresetManager->getMaxNumPresets() )
-		{
-			m_DevId = 0;
+			// send message to ui to give option to accept or deny
+			m_SenderId = salSysexEvent.getDevId();
+			m_DevId = ( m_SenderId + 1 ) % 0x7F;
+			m_RequestedPresetNum = salSysexEvent.getPresetNum();
 			m_SendingOrReceivingAllPresets = false;
-
-			// return to main menu
+			m_NibbleIndex = 0;
 			IAkiDelayPresetEventListener::PublishEvent(
-				AkiDelayPresetEvent(this->getState(), salSysexEvent.getPresetNum(), 0, AkiDelayPresetEventTypeEnum::FINISHED_SENDING_OR_RECEIVING_PRESETS) );
+						AkiDelayPresetEvent(this->getState(), salSysexEvent.getPresetNum(), 0, AkiDelayPresetEventTypeEnum::SEND_PRESET_REQUEST) );
 		}
-		else
+		else if ( salSysexEvent.getType() == SalSysexTypeEnum::REQUEST_TO_SEND_ALL_PRESETS )
 		{
+			// send message to ui to give option to accept or deny
+			m_SenderId = salSysexEvent.getDevId();
+			m_DevId = ( m_SenderId + 1 ) % 0x7F;
+			m_RequestedPresetNum = salSysexEvent.getPresetNum();
+			m_SendingOrReceivingAllPresets = true;
+			m_NibbleIndex = 0;
+			IAkiDelayPresetEventListener::PublishEvent(
+						AkiDelayPresetEvent(this->getState(), salSysexEvent.getPresetNum(), 0, AkiDelayPresetEventTypeEnum::SEND_ALL_PRESETS_REQUEST) );
+		}
+	}
+	else if ( m_DevId == salSysexEvent.getRecId() && (m_SenderId == 0 || m_SenderId == salSysexEvent.getDevId()) ) // if preset exchange is in progress and ids match
+	{
+		if ( salSysexEvent.getType() == SalSysexTypeEnum::ACCEPT_PRESET_OR_PRESETS )
+		{
+			// send the requested preset
+			// note that since sal has a limited midi message size, multiple preset chunks are usually necessary for a single preset
+			if ( m_SenderId == 0 )
+			{
+				m_SenderId = salSysexEvent.getDevId();
+			}
+			const uint16_t numNibblesInPreset = this->getNumNibblesInPreset();
+			const uint8_t requestedPresetNum = salSysexEvent.getPresetNum();
 			if ( m_SendingOrReceivingAllPresets )
 			{
 				m_PresetToSendOrReceive = m_PresetManager->retrievePreset<AkiDelayState>( requestedPresetNum );
@@ -534,7 +411,7 @@ void AkiDelayManager::onSalSysexEvent (const SalSysexEvent& salSysexEvent)
 				m_PresetToSendOrReceive = this->getState();
 			}
 			SalSysexEvent sendPresetDataChunkEvent
-				= SalSysexEvent::buildSendPresetDataChunkEvent( m_DevId, AKI_DELAY_MODEL_ID, senderId, requestedPresetNum, numNibblesInPreset );
+				= SalSysexEvent::buildSendPresetDataChunkEvent( m_DevId, AKI_DELAY_MODEL_ID, m_SenderId, requestedPresetNum, numNibblesInPreset );
 
 			// build the chunk
 			while ( m_NibbleIndex < numNibblesInPreset )
@@ -565,9 +442,145 @@ void AkiDelayManager::onSalSysexEvent (const SalSysexEvent& salSysexEvent)
 
 			m_MidiHandler->processSalSysexEvent( sendPresetDataChunkEvent );
 		}
-	}
+		else if ( salSysexEvent.getType() == SalSysexTypeEnum::DENY_PRESET_OR_PRESETS )
+		{
+			// reset and return to main page
+			m_DevId = 0;
+			m_SenderId = 0;
+			m_SendingOrReceivingAllPresets = false;
+			m_NibbleIndex = 0;
+			IAkiDelayPresetEventListener::PublishEvent(
+						AkiDelayPresetEvent(this->getState(), salSysexEvent.getPresetNum(), 0, AkiDelayPresetEventTypeEnum::DENY_PRESET) );
+		}
+		else if ( salSysexEvent.getType() == SalSysexTypeEnum::SEND_PRESET_DATA_CHUNK )
+		{
+			const uint16_t numNibblesInPreset = this->getNumNibblesInPreset();
+			const uint8_t requestedPresetNum = salSysexEvent.getPresetNum();
+			const uint8_t* presetChunkNibbles = salSysexEvent.getPresetChunkNibbles();
+			uint8_t presetChunkNibblesIndex = 0;
+			uint8_t maxNibblesInMessage = salSysexEvent.getMaxNumNibblesInPresetChunkNibbles();
+			uint8_t* presetToSendOrReceivePtr = reinterpret_cast<uint8_t*>( &m_PresetToSendOrReceive );
 
-	m_PrevSalSysexEvent = salSysexEvent;
+			// build the preset from the chunk
+			while ( m_NibbleIndex < numNibblesInPreset && presetChunkNibblesIndex < maxNibblesInMessage )
+			{
+				const uint8_t nibble = presetChunkNibbles[presetChunkNibblesIndex];
+				const unsigned int byteIndex = m_NibbleIndex / 2;
+
+				if ( (m_NibbleIndex & 0b1) == 0 )
+				{
+					// this is the high nibble of the byte
+					presetToSendOrReceivePtr[byteIndex] = ( nibble << 4 );
+				}
+				else
+				{
+					// this is the low nibble of the byte
+					presetToSendOrReceivePtr[byteIndex] |= nibble;
+				}
+
+				m_NibbleIndex++;
+				presetChunkNibblesIndex++;
+			}
+
+			if ( m_NibbleIndex == numNibblesInPreset )
+			{
+				// we have the full preset, send the received preset message
+				m_NibbleIndex = 0; // reset since next preset we need to start at the first nibble
+				SalSysexEvent receivedPresetEvent
+					= SalSysexEvent::buildReceivedPresetEvent( m_DevId, AKI_DELAY_MODEL_ID, m_SenderId, requestedPresetNum, numNibblesInPreset );
+
+				// save the preset
+				if ( m_SendingOrReceivingAllPresets && requestedPresetNum != m_PresetManager->getMaxNumPresets() - 1)
+				{
+					m_PresetManager->writePreset<AkiDelayState>( m_PresetToSendOrReceive, requestedPresetNum );
+				}
+				else // receiving only one preset, or finished receiving all presets
+				{
+					const uint8_t presetNumToSaveTo = ( m_SendingOrReceivingAllPresets ) ? requestedPresetNum : m_PresetManager->getCurrentPresetNum();
+					m_PresetManager->writePreset<AkiDelayState>( m_PresetToSendOrReceive, presetNumToSaveTo );
+					this->setState( m_PresetToSendOrReceive );
+
+					// return to main menu
+					IAkiDelayPresetEventListener::PublishEvent(
+						AkiDelayPresetEvent(this->getState(), salSysexEvent.getPresetNum(), 0, AkiDelayPresetEventTypeEnum::FINISHED_SENDING_OR_RECEIVING_PRESETS) );
+
+					m_DevId = 0;
+					m_SenderId = 0;
+				}
+
+				m_MidiHandler->processSalSysexEvent( receivedPresetEvent );
+			}
+			else // we don't have the full preset yet, request another chunk
+			{
+				SalSysexEvent acceptPresetOrPresetsEvent
+					= SalSysexEvent::buildAcceptPresetOrPresetsEvent( m_DevId, AKI_DELAY_MODEL_ID, m_SenderId, requestedPresetNum, numNibblesInPreset );
+
+				m_MidiHandler->processSalSysexEvent( acceptPresetOrPresetsEvent );
+			}
+		}
+		else if ( salSysexEvent.getType() == SalSysexTypeEnum::RECEIVED_PRESET )
+		{
+			// send the next requested preset
+			// note that since sal has a limited midi message size, multiple preset chunks are usually necessary for a single preset
+			const uint16_t numNibblesInPreset = this->getNumNibblesInPreset();
+			const uint8_t requestedPresetNum = ( m_SendingOrReceivingAllPresets ) ? salSysexEvent.getPresetNum() + 1 : m_PresetManager->getMaxNumPresets();
+
+			m_NibbleIndex = 0; // reset since next preset we need to start at the first nibble
+
+			if ( requestedPresetNum == m_PresetManager->getMaxNumPresets() )
+			{
+				m_DevId = 0;
+				m_SenderId = 0;
+				m_SendingOrReceivingAllPresets = false;
+
+				// return to main menu
+				IAkiDelayPresetEventListener::PublishEvent(
+					AkiDelayPresetEvent(this->getState(), salSysexEvent.getPresetNum(), 0, AkiDelayPresetEventTypeEnum::FINISHED_SENDING_OR_RECEIVING_PRESETS) );
+			}
+			else
+			{
+				if ( m_SendingOrReceivingAllPresets )
+				{
+					m_PresetToSendOrReceive = m_PresetManager->retrievePreset<AkiDelayState>( requestedPresetNum );
+				}
+				else
+				{
+					m_PresetToSendOrReceive = this->getState();
+				}
+				SalSysexEvent sendPresetDataChunkEvent
+					= SalSysexEvent::buildSendPresetDataChunkEvent( m_DevId, AKI_DELAY_MODEL_ID, m_SenderId, requestedPresetNum, numNibblesInPreset );
+
+				// build the chunk
+				while ( m_NibbleIndex < numNibblesInPreset )
+				{
+					uint8_t nibble = reinterpret_cast<uint8_t*>( &m_PresetToSendOrReceive )[ m_NibbleIndex / 2 ];
+					if ( (m_NibbleIndex & 0b1) == 0 )
+					{
+						// this is the high nibble of the byte
+						nibble = nibble >> 4;
+					}
+					else
+					{
+						// this is the low nibble of the byte
+						nibble = nibble & 0b1111;
+					}
+
+					if ( ! sendPresetDataChunkEvent.writeNibble(nibble) )
+					{
+						// unsuccessful write due to midi message being full
+						break;
+					}
+					else
+					{
+						// successful write
+						m_NibbleIndex++;
+					}
+				}
+
+				m_MidiHandler->processSalSysexEvent( sendPresetDataChunkEvent );
+			}
+		}
+	}
 }
 
 uint8_t AkiDelayManager::generateRandomDevId()
@@ -575,7 +588,7 @@ uint8_t AkiDelayManager::generateRandomDevId()
 	// generate a random device id
 	std::random_device rd;
 	std::mt19937 gen( rd() );
-	std::uniform_int_distribution<int> distrib( 0, 0x7F ); // 0x7F since it must be a data byte instead of a status byte
+	std::uniform_int_distribution<int> distrib( 0x01, 0x7E ); // 0x7F since it must be a data byte instead of a status byte, ranges so that dev id and sender id are never zero
 
 	return distrib( gen );
 }

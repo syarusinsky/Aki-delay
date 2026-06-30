@@ -64,6 +64,8 @@ class AkiDelayManager : public IBufferCallback<uint16_t>, public IAkiDelayParame
 		void onAkiDelayParameterEvent (const AkiDelayParameterEvent& paramEvent) override;
 		void onSalSysexEvent( const SalSysexEvent& salSysexEvent) override;
 
+		uint8_t getDevId() { return m_DevId; }
+
 	private:
 		IStorageMedia* 		m_StorageMedia; // where delay buffer sits
 
@@ -88,7 +90,8 @@ class AkiDelayManager : public IBufferCallback<uint16_t>, public IAkiDelayParame
 		AkiDelayState 		m_PresetToSendOrReceive;
 		unsigned int 		m_PresetToSendOrReceiveNum;
 		uint8_t 		m_DevId;
-		SalSysexEvent 		m_PrevSalSysexEvent;
+		uint8_t 		m_SenderId; // the other unit's id in the preset exchange
+		uint8_t 		m_RequestedPresetNum;
 		bool 			m_SendingOrReceivingAllPresets = false;
 		unsigned int 		m_NibbleIndex = 0;
 

@@ -28,7 +28,7 @@ add_subdirectory(${JUCE_DIRECTORY} ./juce)                    # If you've put JU
 # If you are building a VST2 or AAX plugin, CMake needs to be told where to find these SDKs on your
 # system. This setup should be done before calling `juce_add_plugin`.
 
-# juce_set_vst2_sdk_path(...)
+juce_set_vst2_sdk_path(/usr/src/vst2sdk/)
 # juce_set_aax_sdk_path(...)
 
 # `juce_add_plugin` adds a static library target with the name passed as the first argument
@@ -51,7 +51,7 @@ juce_add_plugin(AkiDelayVST
     PLUGIN_MANUFACTURER_CODE RMDC               # A four-character manufacturer id with at least one upper-case character
     PLUGIN_CODE Akdl                            # A unique four-character plugin id with exactly one upper-case character
                                                 # GarageBand 10.3 requires the first letter to be upper-case, and the remaining letters to be lower-case
-    FORMATS VST3                  # The formats to build. Other valid formats are: AAX Unity VST AU AUv3
+    FORMATS VST3 VST                 # The formats to build. Other valid formats are: AAX Unity VST AU AUv3
     VST3_AUTO_MANIFEST FALSE
     PRODUCT_NAME "Aki-delay")        # The name of the final executable, which can differ from the target name
 
@@ -154,6 +154,7 @@ target_compile_definitions(AkiDelayVST
 set(MINGW_STATIC_FLAGS "-static -static-libgcc -static-libstdc++ -Wl,-Bstatic,--whole-archive -lwinpthread -Wl,--no-whole-archive")
 set_target_properties(AkiDelayVST PROPERTIES LINK_FLAGS "${MINGW_STATIC_FLAGS}")
 set_target_properties(AkiDelayVST_VST3 PROPERTIES LINK_FLAGS "${MINGW_STATIC_FLAGS}")
+set_target_properties(AkiDelayVST_VST PROPERTIES LINK_FLAGS "${MINGW_STATIC_FLAGS}")
 
 # set standard
 set(CMAKE_CXX_STANDARD 17)

@@ -170,10 +170,13 @@ void AkiDelayVSTAudioProcessorEditor::onAkiDelayLCDRefreshEvent (const AkiDelayL
 
 void AkiDelayVSTAudioProcessorEditor::onAkiDelayPresetChangedEvent (const AkiDelayPresetEvent& presetEvent)
 {
-    AkiDelayState state = presetEvent.getPreset();
-    effect1Sldr.setValue( state.m_DelayTime );
-    effect2Sldr.setValue( state.m_Feedback * 100.0f );
-    effect3Sldr.setValue( state.m_FiltFreq );
+    if ( presetEvent.getType() == AkiDelayPresetEventTypeEnum::LOAD_PRESET || presetEvent.getType() == AkiDelayPresetEventTypeEnum::FINISHED_SENDING_OR_RECEIVING_PRESETS )
+    {
+        AkiDelayState state = presetEvent.getPreset();
+        effect1Sldr.setValue( state.m_DelayTime );
+        effect2Sldr.setValue( state.m_Feedback * 100.0f );
+        effect3Sldr.setValue( state.m_FiltFreq );
+    }
 }
 
 void AkiDelayVSTAudioProcessorEditor::copyFrameBufferToImage (unsigned int xStart, unsigned int yStart, unsigned int xEnd, unsigned int yEnd)
