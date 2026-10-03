@@ -70,6 +70,8 @@ AkiDelayVSTAudioProcessorEditor::AkiDelayVSTAudioProcessorEditor (AkiDelayVSTAud
 
 AkiDelayVSTAudioProcessorEditor::~AkiDelayVSTAudioProcessorEditor()
 {
+    this->unbindFromAkiDelayLCDRefreshEventSystem();
+    this->unbindFromAkiDelayPresetEventSystem();
 }
 
 void AkiDelayVSTAudioProcessorEditor::timerCallback()
