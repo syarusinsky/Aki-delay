@@ -17,6 +17,7 @@ AkiDelayUiManager::AkiDelayUiManager (uint8_t* fontData, uint8_t* mainImageData,
 	m_MainImage( new Sprite(mainImageData) ),
 	m_HiddenImage( new Sprite(hiddenImageData) ),
 	m_CurrentMenu( AKIDELAY_MENUS::MAIN ),
+	m_CurrentPresetNum( 0 ),
 	m_Effect1BtnState( BUTTON_STATE::FLOATING ),
 	m_Effect2BtnState( BUTTON_STATE::FLOATING ),
 	m_HiddenMenuHoldIncr( 0 ),
@@ -67,6 +68,8 @@ void AkiDelayUiManager::draw()
 
 void AkiDelayUiManager::onAkiDelayPresetChangedEvent (const AkiDelayPresetEvent& presetEvent)
 {
+	m_CurrentPresetNum = presetEvent.getPresetNum();
+
 	if ( presetEvent.getType() == AkiDelayPresetEventTypeEnum::LOAD_PRESET )
 	{
 		this->lockAllPots();
@@ -83,11 +86,11 @@ void AkiDelayUiManager::onAkiDelayPresetChangedEvent (const AkiDelayPresetEvent&
 	}
 	else if ( presetEvent.getType() == AkiDelayPresetEventTypeEnum::ACCEPT_PRESET )
 	{
-		this->switchToReceivingMenu( false );
+		this->switchToReceivingMenu( false, presetEvent.getPresetNum() + 1 );
 	}
 	else if ( presetEvent.getType() == AkiDelayPresetEventTypeEnum::ACCEPT_ALL_PRESETS )
 	{
-		this->switchToReceivingMenu( true );
+		this->switchToReceivingMenu( true, presetEvent.getPresetNum() + 1 );
 	}
 	else if ( presetEvent.getType() == AkiDelayPresetEventTypeEnum::DENY_PRESET )
 	{
@@ -357,7 +360,7 @@ void AkiDelayUiManager::switchToReceiverMenu (bool receiveAllPresets)
 	IAkiDelayLCDRefreshEventListener::PublishEvent( AkiDelayLCDRefreshEvent(0, 0, m_FrameBuffer->getWidth(), m_FrameBuffer->getHeight(), 0) );
 }
 
-void AkiDelayUiManager::switchToSendingMenu (bool sendAllPresets)
+void AkiDelayUiManager::switchToSendingMenu (bool sendAllPresets, unsigned int presetNum)
 {
 	m_CurrentMenu = AKIDELAY_MENUS::SENDING;
 
@@ -368,16 +371,18 @@ void AkiDelayUiManager::switchToSendingMenu (bool sendAllPresets)
 	if ( ! sendAllPresets )
 	{
 		m_Graphics->drawText( 0.0f, 0.4f,  " sending preset", 1.0f );
+		m_Graphics->drawText( 0.45f, 0.6f,  std::to_string(presetNum + 1).c_str(), 1.0f );
 	}
 	else // sending all presets
 	{
 		m_Graphics->drawText( 0.0f, 0.4f,  " sending presets", 1.0f );
+		m_Graphics->drawText( 0.45f, 0.6f,  std::to_string(presetNum + 1).c_str(), 1.0f );
 	}
 
 	IAkiDelayLCDRefreshEventListener::PublishEvent( AkiDelayLCDRefreshEvent(0, 0, m_FrameBuffer->getWidth(), m_FrameBuffer->getHeight(), 0) );
 }
 
-void AkiDelayUiManager::switchToReceivingMenu (bool receiveAllPresets)
+void AkiDelayUiManager::switchToReceivingMenu (bool receiveAllPresets, unsigned int presetNum)
 {
 	m_CurrentMenu = AKIDELAY_MENUS::SENDING;
 
@@ -388,10 +393,12 @@ void AkiDelayUiManager::switchToReceivingMenu (bool receiveAllPresets)
 	if ( ! receiveAllPresets )
 	{
 		m_Graphics->drawText( 0.05f, 0.4f,  "receiving preset", 1.0f );
+		m_Graphics->drawText( 0.45f, 0.6f,  std::to_string(presetNum + 1).c_str(), 1.0f );
 	}
 	else // sending all presets
 	{
 		m_Graphics->drawText( 0.05f, 0.4f,  "receiving presets", 1.0f );
+		m_Graphics->drawText( 0.45f, 0.6f,  std::to_string(presetNum + 1).c_str(), 1.0f );
 	}
 
 	IAkiDelayLCDRefreshEventListener::PublishEvent( AkiDelayLCDRefreshEvent(0, 0, m_FrameBuffer->getWidth(), m_FrameBuffer->getHeight(), 0) );
@@ -419,7 +426,7 @@ void AkiDelayUiManager::handleEffect1SinglePress()
 	{
 		IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(0.0f, static_cast<unsigned int>(PARAM_CHANNEL::SEND_PRESET)) );
 
-		this->switchToSendingMenu( false );
+		this->switchToSendingMenu( false, m_CurrentPresetNum + 1 );
 	}
 	else if ( m_CurrentMenu == AKIDELAY_MENUS::RECEIVER )
 	{
@@ -457,7 +464,7 @@ void AkiDelayUiManager::handleDoubleButtonPress()
 	{
 		IAkiDelayParameterEventListener::PublishEvent( AkiDelayParameterEvent(0.0f, static_cast<unsigned int>(PARAM_CHANNEL::SEND_ALL_PRESETS)) );
 
-		this->switchToSendingMenu( true );
+		this->switchToSendingMenu( true, 1 );
 	}
 }
 

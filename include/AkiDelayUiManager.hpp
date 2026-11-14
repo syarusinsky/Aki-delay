@@ -50,6 +50,8 @@ class AkiDelayUiManager : public Surface, public IPotEventListener, public IButt
 
 		AKIDELAY_MENUS 	m_CurrentMenu;
 
+		unsigned int 	m_CurrentPresetNum;
+
 		BUTTON_STATE 	m_Effect1BtnState;
 		BUTTON_STATE 	m_Effect2BtnState;
 		unsigned int 	m_HiddenMenuHoldIncr;
@@ -86,8 +88,8 @@ class AkiDelayUiManager : public Surface, public IPotEventListener, public IButt
 		void switchToMainMenu();
 		void switchToSenderMenu();
 		void switchToReceiverMenu(bool receiveAllPresets);
-		void switchToSendingMenu (bool sendAllPresets);
-		void switchToReceivingMenu (bool receiveAllPresets);
+		void switchToSendingMenu (bool sendAllPresets, unsigned int currentPresetNum);
+		void switchToReceivingMenu (bool receiveAllPresets, unsigned int currentPresetNum);
 		void switchToHiddenMenu();
 		void updateButtonState (BUTTON_STATE& buttonState, bool pressed);
 		void updateParameterString (float value, const POT_CHANNEL& channel);
