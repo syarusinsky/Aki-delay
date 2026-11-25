@@ -11,7 +11,6 @@
 
 #include "AkiDelayConstants.hpp"
 #include "AkiDelayPresetUpgrader.hpp"
-#include "CPPFile.hpp"
 #include "SRAM_23K256.hpp"
 
 // assets
@@ -24,7 +23,8 @@
 AkiDelayVSTAudioProcessor::AkiDelayVSTAudioProcessor()
     : sAudioBuffer(),
       fakeStorageDevice( Sram_23K256::SRAM_SIZE * 4 ), // sram size on Gen_FX_SYN boards, with four srams installed
-      presetManager( sizeof(AkiDelayPresetHeader), 20, new CPPFile("AkiDelayPresets.spf") ),
+      presetFile( "AkiDelayPresetsBank1.spf" ),
+      presetManager( sizeof(AkiDelayPresetHeader), 20, &presetFile ),
       midiHandler(),
       akiDelayManager( &fakeStorageDevice, &midiHandler, &presetManager ),
       akiDelayUiManager( Smoll_data, AkiDelayMainImage_data, AkiDelayHiddenImage_data ),
@@ -34,6 +34,7 @@ AkiDelayVSTAudioProcessor::AkiDelayVSTAudioProcessor()
                                   { std::make_unique<AudioParameterFloat> ("effect1", "Delay Time", NormalisableRange<float> (0.0f, MAX_DELAY_TIME), 0),
                                     std::make_unique<AudioParameterInt> ("effect2", "Feedback", 0, 99, 0),
                                     std::make_unique<AudioParameterInt> ("effect3", "Filter Freq", 1, 20000, 20000),
+                                    std::make_unique<AudioParameterInt> ("presetBank", "Preset Bank", 0, 1, 0)
                                   }),
       processorId( IEventListener::getGlobalJuceProcessorId() )
 #ifndef JucePlugin_PreferredChannelConfigurations
@@ -55,10 +56,7 @@ AkiDelayVSTAudioProcessor::AkiDelayVSTAudioProcessor()
     }
     fakeStorageDevice.writeToMedia( data, 0 );
 
-    // upgrade presets if necessary
-    AkiDelayState initPreset = { 0.0f, 0.0f, 20000.0f };
-    AkiDelayPresetUpgrader presetUpgrader( initPreset, akiDelayManager.getPresetHeader() );
-    presetManager.upgradePresets( &presetUpgrader );
+    this->upgradePresetsIfNecessary();
 
     sAudioBuffer.registerCallback( &akiDelayManager );
 }
@@ -331,6 +329,12 @@ void AkiDelayVSTAudioProcessor::setStateInformation (const void* data, int sizeI
                 apvts.replaceState (newTree);
             }
 
+            if (apvts.state.hasProperty("presetBank"))
+            {
+                presetFile = CPPFile( "AkiDelayPresetsBank" + std::to_string(static_cast<int> (*apvts.getRawParameterValue("presetBank")) + 1) +".spf" );
+                this->upgradePresetsIfNecessary();
+            }
+
             // set initial values
             juce::AudioParameterFloat* e1 = dynamic_cast<juce::AudioParameterFloat*>( apvts.getParameter("effect1") );
             juce::AudioParameterInt* e2 = dynamic_cast<juce::AudioParameterInt*>( apvts.getParameter("effect2") );
@@ -367,6 +371,32 @@ void AkiDelayVSTAudioProcessor::dispatchEventsForIds (const unsigned int process
                     &IAkiDelayPresetEventListener::onAkiDelayPresetChangedEvent>::juceDispatchQueuedEvents( processorId, processorEditorId );
     EventDispatcher<IAkiDelayLCDRefreshEventListener, AkiDelayLCDRefreshEvent,
                     &IAkiDelayLCDRefreshEventListener::onAkiDelayLCDRefreshEvent>::juceDispatchQueuedEvents( processorId, processorEditorId );
+}
+
+void AkiDelayVSTAudioProcessor::upgradePresetsIfNecessary()
+{
+    AkiDelayState initPreset = { 0.0f, 0.0f, 20000.0f };
+    AkiDelayPresetUpgrader presetUpgrader( initPreset, akiDelayManager.getPresetHeader() );
+    presetManager.upgradePresets( &presetUpgrader );
+}
+
+void AkiDelayVSTAudioProcessor::iterateThroughPresetBanks()
+{
+    if (auto* intParam = dynamic_cast<juce::AudioParameterInt*> (apvts.getParameter ("presetBank")))
+    {
+        int minVal = intParam->getRange().getStart();
+        int maxVal = intParam->getRange().getEnd();
+        int current = intParam->get();
+
+        int next = (current >= maxVal) ? minVal : (current + 1);
+
+        intParam->beginChangeGesture();
+        *intParam = next;
+        intParam->endChangeGesture();
+
+        presetFile = CPPFile( "AkiDelayPresetsBank" + std::to_string(static_cast<int> (*apvts.getRawParameterValue("presetBank")) + 1) +".spf" );
+        this->upgradePresetsIfNecessary();
+    }
 }
 
 //==============================================================================

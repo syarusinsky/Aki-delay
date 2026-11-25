@@ -17,6 +17,7 @@
 #include "SRAM_23K256.hpp"
 #include "PresetManager.hpp"
 #include "MidiHandler.hpp"
+#include "CPPFile.hpp"
 
 #include <JuceHeader.h>
 
@@ -69,6 +70,9 @@ public:
 
     AudioProcessorValueTreeState& getVTS() { return apvts; }
 
+    void upgradePresetsIfNecessary();
+    void iterateThroughPresetBanks();
+
     // this is a workaround for the fact that vst plugins share memory across multiple
     // instances, so the static member variables of the event listeners end up sending
     // events to all instances of the plugin
@@ -82,6 +86,7 @@ private:
 
     FakeStorageDevice fakeStorageDevice;
 
+    CPPFile presetFile;
     PresetManager presetManager;
     MidiHandler midiHandler;
 
